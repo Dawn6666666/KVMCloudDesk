@@ -182,6 +182,50 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 虚拟机关闭进度 Dialog -->
+    <el-dialog 
+      v-model="shutdownDialogVisible" 
+      title="虚拟机安全关机控制" 
+      width="460px"
+      :close-on-click-modal="false"
+      :show-close="shutdownProgressStatus === 'exception' || shutdownProgressStatus === 'success'"
+      @closed="handleShutdownDialogClosed"
+    >
+      <div class="shutdown-progress-container" style="text-align: center; padding: 20px 0;">
+        <el-progress 
+          type="circle" 
+          :percentage="shutdownProgress" 
+          :status="shutdownProgressStatus" 
+          :stroke-width="8" 
+          :width="120"
+        />
+        <div class="progress-status-title" style="margin-top: 20px; font-weight: bold; font-size: 16px; color: var(--el-text-color-primary);">
+          正在关闭 {{ shutdownVmName }}
+        </div>
+        <p class="progress-status-desc" style="margin-top: 10px; font-size: 14px; color: var(--el-text-color-secondary); line-height: 1.5; padding: 0 10px;">
+          {{ shutdownStatusText }}
+        </p>
+      </div>
+      <template #footer>
+        <div class="dialog-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
+          <el-button 
+            v-if="shutdownProgressStatus === 'exception' || shutdownProgressStatus === 'success'" 
+            @click="shutdownDialogVisible = false"
+          >
+            关闭窗口
+          </el-button>
+          <el-button 
+            v-if="showForceShutdownBtn" 
+            type="danger" 
+            :loading="forceShutdownLoading" 
+            @click="handleForceShutdown"
+          >
+            强制断电
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -192,9 +236,10 @@ import type { FormInstance, FormRules } from 'element-plus';
 import { Plus, Refresh } from '@element-plus/icons-vue';
 import { 
   getVms, startVm, shutdownVm, destroyVm, suspendVm, resumeVm, deleteVm, createVm,
-  getImages, getNetworks
+  getImages, getNetworks, getVmDetail
 } from '@/api/kvm';
 import type { VmInfoDto, ImageInfoDto, NetworkInfoDto, CreateVmRequest } from '@/types/kvm';
+import { useLogStore } from '@/stores/logStore';
 
 const vms = ref<VmInfoDto[]>([]);
 const images = ref<ImageInfoDto[]>([]);
@@ -204,6 +249,17 @@ const globalLoading = ref(false);
 const createLoading = ref(false);
 const createDialogVisible = ref(false);
 const actionLoading = ref<Record<string, boolean>>({});
+
+const logStore = useLogStore();
+
+// 关机进度控制
+const shutdownDialogVisible = ref(false);
+const shutdownVmName = ref('');
+const shutdownProgress = ref(0);
+const shutdownStatusText = ref('');
+const shutdownProgressStatus = ref<'success' | 'exception' | 'warning' | ''>('');
+const showForceShutdownBtn = ref(false);
+const forceShutdownLoading = ref(false);
 
 const formRef = ref<FormInstance | null>(null);
 
@@ -307,27 +363,162 @@ const submitCreate = async () => {
   });
 };
 
+let activePollInterval: any = null;
+let activeProgressInterval: any = null;
+
+const handleShutdownDialogClosed = () => {
+  if (activePollInterval) {
+    clearInterval(activePollInterval);
+    activePollInterval = null;
+  }
+  if (activeProgressInterval) {
+    clearInterval(activeProgressInterval);
+    activeProgressInterval = null;
+  }
+};
+
+const startShutdownPoll = (name: string) => {
+  // 启动前先清理可能残留的定时器
+  handleShutdownDialogClosed();
+
+  shutdownVmName.value = name;
+  shutdownProgress.value = 10;
+  shutdownStatusText.value = '已向系统发送关机信号，正在等待虚拟机关闭...';
+  shutdownProgressStatus.value = '';
+  showForceShutdownBtn.value = false;
+  shutdownDialogVisible.value = true;
+
+  logStore.addLog('info', `关闭虚拟机 ${name}`, '正在等待虚拟机安全关机...');
+
+  let pollCount = 0;
+  const maxPoll = 15; // 1.5 秒轮询一次，最多 15 次，共 22.5 秒左右
+
+  activeProgressInterval = setInterval(() => {
+    if (shutdownProgress.value < 90) {
+      shutdownProgress.value = Math.min(
+        90,
+        Math.round(shutdownProgress.value + (90 - shutdownProgress.value) * 0.15)
+      );
+    }
+  }, 1000);
+
+  activePollInterval = setInterval(async () => {
+    pollCount++;
+    try {
+      const detail = await getVmDetail(name);
+      if (detail.state === '关闭') {
+        handleShutdownDialogClosed();
+
+        shutdownProgress.value = 100;
+        shutdownProgressStatus.value = 'success';
+        shutdownStatusText.value = '虚拟机已成功安全关闭';
+        logStore.addLog('success', `关闭虚拟机 ${name}`, '虚拟机已成功安全关机');
+
+        setTimeout(() => {
+          shutdownDialogVisible.value = false;
+          fetchData();
+        }, 1200);
+      } else if (pollCount >= maxPoll) {
+        handleShutdownDialogClosed();
+
+        shutdownProgressStatus.value = 'exception';
+        shutdownStatusText.value = '虚拟机未能在规定时间内响应关机信号。这可能是因为虚拟机内部系统未运行或未安装 ACPI 关机支持。你可以关闭本窗口，或执行强制断电。';
+        showForceShutdownBtn.value = true;
+        logStore.addLog('error', `关闭虚拟机 ${name}`, '虚拟机关机等待超时');
+      }
+    } catch (error) {
+      console.error('轮询虚拟机状态发生异常', error);
+    }
+  }, 1500);
+};
+
+const handleForceShutdown = async () => {
+  forceShutdownLoading.value = true;
+  try {
+    await destroyVm(shutdownVmName.value);
+    ElMessage.success('虚拟机强制关闭成功');
+    logStore.addLog('success', `强制关机虚拟机 ${shutdownVmName.value}`, '强制关闭成功');
+    shutdownDialogVisible.value = false;
+    await fetchData();
+  } catch (error) {
+    console.error('强制关机失败', error);
+    ElMessage.error('强制关机操作失败');
+  } finally {
+    forceShutdownLoading.value = false;
+  }
+};
+
 const handleAction = async (name: string, action: string) => {
   actionLoading.value[name] = true;
+  const actionName = {
+    start: '启动',
+    suspend: '暂停',
+    resume: '恢复'
+  }[action] || '操作';
+
   try {
     switch (action) {
       case 'start':
+        logStore.addLog('info', `启动虚拟机 ${name}`, '正在向系统发送启动信号...');
         await startVm(name);
+        logStore.addLog('info', `启动虚拟机 ${name}`, '启动指令已下发，正在验证虚拟机运行状态...');
+        
+        await new Promise(resolve => setTimeout(resolve, 600));
+        await fetchData();
+        
+        const vm = vms.value.find(v => v.name === name);
+        if (vm && vm.state === '运行') {
+          logStore.addLog('success', `启动虚拟机 ${name}`, '虚拟机状态已成功转为 [运行中]');
+          ElMessage.success(`虚拟机 ${name} 启动成功`);
+        } else {
+          logStore.addLog('error', `启动虚拟机 ${name}`, `启动信号已发出，但检测到状态为 [${vm ? vm.state : '未知'}]`);
+          ElMessage.warning(`虚拟机 ${name} 已启动，但状态异常`);
+        }
         break;
+
       case 'shutdown':
         await shutdownVm(name);
+        startShutdownPoll(name);
         break;
+
       case 'suspend':
+        logStore.addLog('info', `暂停虚拟机 ${name}`, '正在发送暂停信号...');
         await suspendVm(name);
+        logStore.addLog('info', `暂停虚拟机 ${name}`, '暂停指令已下发，正在更新状态...');
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await fetchData();
+        
+        const suspendedVm = vms.value.find(v => v.name === name);
+        if (suspendedVm && suspendedVm.state === '暂停') {
+          logStore.addLog('success', `暂停虚拟机 ${name}`, '虚拟机已成功进入 [暂停] 状态');
+          ElMessage.success(`虚拟机 ${name} 已暂停`);
+        } else {
+          logStore.addLog('error', `暂停虚拟机 ${name}`, `已发送指令，但当前状态为 [${suspendedVm ? suspendedVm.state : '未知'}]`);
+        }
         break;
+
       case 'resume':
+        logStore.addLog('info', `恢复虚拟机 ${name}`, '正在发送恢复信号...');
         await resumeVm(name);
+        logStore.addLog('info', `恢复虚拟机 ${name}`, '恢复指令已下发，正在更新状态...');
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await fetchData();
+        
+        const resumedVm = vms.value.find(v => v.name === name);
+        if (resumedVm && resumedVm.state === '运行') {
+          logStore.addLog('success', `恢复虚拟机 ${name}`, '虚拟机已成功恢复至 [运行中]');
+          ElMessage.success(`虚拟机 ${name} 已恢复运行`);
+        } else {
+          logStore.addLog('error', `恢复虚拟机 ${name}`, `已发送指令，但当前状态为 [${resumedVm ? resumedVm.state : '未知'}]`);
+        }
         break;
     }
-    ElMessage.success('操作指令成功完成');
-    await fetchData();
-  } catch (error) {
-    console.error(`执行 ${action} 操作异常`, error);
+  } catch (error: any) {
+    console.error(`执行 ${actionName} 操作异常`, error);
+    const errMsg = error.message || '操作执行失败';
+    logStore.addLog('error', `${actionName}虚拟机 ${name}`, errMsg);
   } finally {
     actionLoading.value[name] = false;
   }
@@ -346,14 +537,20 @@ const confirmAction = (name: string, action: string, actionTitle: string) => {
     actionLoading.value[name] = true;
     try {
       if (action === 'destroy') {
+        logStore.addLog('info', `强制关机虚拟机 ${name}`, '正在向虚拟机发送强制断电信号...');
         await destroyVm(name);
+        logStore.addLog('success', `强制关机虚拟机 ${name}`, '虚拟机已成功强制断电');
       } else if (action === 'delete') {
+        logStore.addLog('info', `删除虚拟机 ${name}`, '正在注销虚拟机定义并清理磁盘映像文件...');
         await deleteVm(name);
+        logStore.addLog('success', `删除虚拟机 ${name}`, '虚拟机及磁盘卷已彻底删除');
       }
       ElMessage.success(`${actionTitle}指令执行完成`);
       await fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error(`执行 ${actionTitle} 操作发生错误`, error);
+      const errMsg = error.message || '操作失败';
+      logStore.addLog('error', `${actionTitle}虚拟机 ${name}`, errMsg);
     } finally {
       actionLoading.value[name] = false;
     }

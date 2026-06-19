@@ -37,6 +37,21 @@ CentOS 真实部署环境配置：
 - 虚拟机控制中的关机动作依赖虚拟机内部的系统响应，若需要立即断电请使用强制关闭。
 - 业务代码中严禁通过 Runtime.getRuntime().exec()、ProcessBuilder 或其他任何方式调用 virsh 命令行。
 
+## 本机常用环境路径
+
+- **JDK 21 绝对路径**：`C:\Users\24831\.jdks\ms-21.0.10` (系统默认 `JAVA_HOME` 指向 17，必须在编译前指定 21)
+- **Maven 绝对路径**：`D:\Jetbrains\IntelliJ IDEA 2025.2.4\plugins\maven\lib\maven3\bin\mvn.cmd` (未加入全局 PATH)
+
+## 常见故障排查（已解决）
+
+- **虚拟机启动/关机操作 15 秒超时问题**：
+  如果发现 `virsh start` 启动虚拟机或关机操作需要整整 15 秒才返回，是因为 CentOS 无法解析自身的主机名 `centos` 导致了 DNS 延迟。
+  必须保证 CentOS 虚拟机的 [/etc/hosts](file:///D:/Code/Other/kvm/hosts) 文件末尾包含了主机名的回环解析映射：
+  ```text
+  127.0.0.1 centos
+  ::1 centos
+  ```
+
 ## 常用命令与联调指南
 
 ### 后端 mock 运行模式
@@ -45,15 +60,35 @@ CentOS 真实部署环境配置：
 java -jar backend/target/kvm-cloud-backend.jar --spring.profiles.active=mock
 ```
 
-### CentOS 真实 libvirt 后端部署
+### CentOS 真实 libvirt 后端打包与部署
 
-1. 编译后端：
-   ```bash
-   mvn clean package -DskipTests
+1. **打包后端（显式指定 JDK 21）**：
+   在 Windows 开发机器的 PowerShell 中执行以下命令（通过绝对路径运行 Maven 并临时指定 Java 21 环境变量）：
+   ```powershell
+   powershell -Command '$env:JAVA_HOME = \"C:\Users\24831\.jdks\ms-21.0.10\"; & \"D:\Jetbrains\IntelliJ IDEA 2025.2.4\plugins\maven\lib\maven3\bin\mvn.cmd\" clean package -DskipTests'
    ```
-2. 将 jar 包复制并部署到 CentOS 服务器上，以 libvirt 模式启动：
+2. **前后端合并打包与资源同步**：
+   如果修改了前端网页客户端，需要重新编译并放入后端的静态资源托管目录下：
+   ```powershell
+   # 1. 编译前端静态资源
+   cd client-web
+   npm run build
+   cd ..
+   
+   # 2. 清空并拷贝静态资源至后端 static 目录
+   Remove-Item -Path 'D:\Code\Other\kvm\backend\src\main\resources\static\*' -Recurse -Force
+   Copy-Item -Path 'D:\Code\Other\kvm\client-web\dist\*' -Destination 'D:\Code\Other\kvm\backend\src\main\resources\static' -Recurse -Force
+   
+   # 3. 运行上方步骤 1 中的编译后端命令重新打包
+   ```
+3. **上传并覆盖部署至 CentOS**：
    ```bash
-   java -jar kvm-cloud-backend.jar --spring.profiles.active=libvirt --server.address=0.0.0.0 --server.port=8080
+   # 上传 jar 包
+   scp backend/target/kvm-cloud-backend.jar centos:/tmp/kvm-cloud-backend.jar
+   
+   # 登录 CentOS 重启服务
+   ssh centos "pkill -f kvm-cloud-backend.jar || true"
+   ssh centos "nohup java -jar /tmp/kvm-cloud-backend.jar --spring.profiles.active=libvirt > /tmp/kvm.log 2>&1 < /dev/null &"
    ```
 
 ### 网页客户端开发与远程联调
