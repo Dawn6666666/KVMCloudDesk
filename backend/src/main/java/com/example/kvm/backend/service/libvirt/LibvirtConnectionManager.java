@@ -53,4 +53,10 @@ public class LibvirtConnectionManager {
             libc.free(pointer);
         }
     }
+
+    public String lastErrorMessage() {
+        Pointer error = library.virGetLastErrorMessage();
+        String message = LibvirtUtil.pointerString(error);
+        return message == null || message.isBlank() ? "未知 libvirt 错误" : message;
+    }
 }

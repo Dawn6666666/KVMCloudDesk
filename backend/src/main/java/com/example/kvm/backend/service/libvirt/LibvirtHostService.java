@@ -27,7 +27,7 @@ public class LibvirtHostService implements HostService {
             manager.free(hostname);
 
             LibvirtLibrary.VirNodeInfo node = new LibvirtLibrary.VirNodeInfo();
-            LibvirtUtil.check(lib.virNodeGetInfo(conn, node), "获取宿主机信息失败");
+            check(lib.virNodeGetInfo(conn, node), "获取宿主机信息失败");
             dto.cpuModel = LibvirtUtil.cString(node.model);
             dto.cpuCount = node.cpus;
             dto.cpuMHz = node.mhz;
@@ -53,6 +53,12 @@ public class LibvirtHostService implements HostService {
             return dto;
         } finally {
             manager.close(conn);
+        }
+    }
+
+    private void check(int code, String message) {
+        if (code < 0) {
+            throw new com.example.kvm.backend.exception.BusinessException(message + "：" + manager.lastErrorMessage());
         }
     }
 }

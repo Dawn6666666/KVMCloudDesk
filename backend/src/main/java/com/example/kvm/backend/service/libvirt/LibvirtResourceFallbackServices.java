@@ -2,16 +2,8 @@ package com.example.kvm.backend.service.libvirt;
 
 import com.example.kvm.backend.exception.BusinessException;
 import com.example.kvm.backend.service.ImageService;
-import com.example.kvm.backend.service.NetworkService;
-import com.example.kvm.backend.service.SnapshotService;
-import com.example.kvm.backend.service.StorageService;
 import com.example.kvm.common.dto.ImageInfoDto;
-import com.example.kvm.common.dto.NetworkInfoDto;
-import com.example.kvm.common.dto.SnapshotInfoDto;
-import com.example.kvm.common.dto.StoragePoolInfoDto;
-import com.example.kvm.common.dto.StorageVolumeInfoDto;
 import com.example.kvm.common.request.AddImageRequest;
-import com.example.kvm.common.request.CreateSnapshotRequest;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,7 +17,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @Profile("libvirt")
-public class LibvirtResourceFallbackServices implements ImageService, NetworkService, SnapshotService, StorageService {
+public class LibvirtResourceFallbackServices implements ImageService {
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
     private final Path imageDir;
 
@@ -56,51 +48,6 @@ public class LibvirtResourceFallbackServices implements ImageService, NetworkSer
     @Override
     public void deleteImage(String name) {
         throw unsupported("libvirt 模式暂未实现删除镜像");
-    }
-
-    @Override
-    public List<NetworkInfoDto> listNetworks() {
-        return List.of();
-    }
-
-    @Override
-    public void startNetwork(String name) {
-        throw unsupported("libvirt 模式暂未实现启动网络");
-    }
-
-    @Override
-    public void stopNetwork(String name) {
-        throw unsupported("libvirt 模式暂未实现停止网络");
-    }
-
-    @Override
-    public List<SnapshotInfoDto> listSnapshots(String vmName) {
-        return List.of();
-    }
-
-    @Override
-    public SnapshotInfoDto createSnapshot(String vmName, CreateSnapshotRequest request) {
-        throw unsupported("libvirt 模式暂未实现创建快照");
-    }
-
-    @Override
-    public void revertSnapshot(String vmName, String snapshotName) {
-        throw unsupported("libvirt 模式暂未实现恢复快照");
-    }
-
-    @Override
-    public void deleteSnapshot(String vmName, String snapshotName) {
-        throw unsupported("libvirt 模式暂未实现删除快照");
-    }
-
-    @Override
-    public List<StoragePoolInfoDto> listPools() {
-        return List.of();
-    }
-
-    @Override
-    public List<StorageVolumeInfoDto> listVolumes(String poolName) {
-        return List.of();
     }
 
     private boolean isImage(Path path) {

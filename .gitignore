@@ -1,6 +1,8 @@
 target/
 *.class
 *.log
+~$*.doc
+~$*.docx
 
 .idea/
 *.iml

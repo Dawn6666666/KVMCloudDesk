@@ -6,6 +6,7 @@ import java.io.StringReader;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 
@@ -57,5 +58,30 @@ final class LibvirtUtil {
             }
         }
         return "-";
+    }
+
+    static String firstText(Document doc, String tag) {
+        NodeList nodes = doc.getElementsByTagName(tag);
+        for (int i = 0; i < nodes.getLength(); i++) {
+            Node item = nodes.item(i);
+            String text = item.getTextContent();
+            if (text != null && !text.isBlank()) {
+                return text.trim();
+            }
+        }
+        return "-";
+    }
+
+    static String childText(Element parent, String tag) {
+        NodeList nodes = parent.getElementsByTagName(tag);
+        if (nodes.getLength() == 0) {
+            return "-";
+        }
+        String text = nodes.item(0).getTextContent();
+        return text == null || text.isBlank() ? "-" : text.trim();
+    }
+
+    static double bytesToGb(long bytes) {
+        return Math.round(bytes / 1024.0 / 1024.0 / 1024.0 * 10.0) / 10.0;
     }
 }

@@ -10,6 +10,8 @@ import com.sun.jna.ptr.PointerByReference;
 import java.util.List;
 
 public interface LibvirtLibrary extends Library {
+    Pointer virGetLastErrorMessage();
+
     Pointer virConnectOpen(String name);
     int virConnectClose(Pointer conn);
     Pointer virConnectGetHostname(Pointer conn);
@@ -34,6 +36,42 @@ public interface LibvirtLibrary extends Library {
     int virDomainResume(Pointer domain);
     int virDomainUndefine(Pointer domain);
     int virDomainFree(Pointer domain);
+
+    int virConnectListAllNetworks(Pointer conn, PointerByReference networks, int flags);
+    Pointer virNetworkLookupByName(Pointer conn, String name);
+    Pointer virNetworkGetName(Pointer network);
+    int virNetworkGetUUIDString(Pointer network, byte[] buf);
+    int virNetworkIsActive(Pointer network);
+    int virNetworkGetAutostart(Pointer network, IntByReference autostart);
+    Pointer virNetworkGetXMLDesc(Pointer network, int flags);
+    int virNetworkCreate(Pointer network);
+    int virNetworkDestroy(Pointer network);
+    int virNetworkFree(Pointer network);
+
+    int virDomainListAllSnapshots(Pointer domain, PointerByReference snapshots, int flags);
+    Pointer virDomainSnapshotGetName(Pointer snapshot);
+    Pointer virDomainSnapshotGetXMLDesc(Pointer snapshot, int flags);
+    Pointer virDomainSnapshotCreateXML(Pointer domain, String xmlDesc, int flags);
+    Pointer virDomainSnapshotLookupByName(Pointer domain, String name, int flags);
+    int virDomainRevertToSnapshot(Pointer snapshot, int flags);
+    int virDomainSnapshotDelete(Pointer snapshot, int flags);
+    int virDomainSnapshotFree(Pointer snapshot);
+
+    int virConnectListAllStoragePools(Pointer conn, PointerByReference pools, int flags);
+    Pointer virStoragePoolLookupByName(Pointer conn, String name);
+    Pointer virStoragePoolGetName(Pointer pool);
+    int virStoragePoolGetUUIDString(Pointer pool, byte[] buf);
+    int virStoragePoolIsActive(Pointer pool);
+    int virStoragePoolGetAutostart(Pointer pool, IntByReference autostart);
+    int virStoragePoolGetInfo(Pointer pool, VirStoragePoolInfo info);
+    Pointer virStoragePoolGetXMLDesc(Pointer pool, int flags);
+    int virStoragePoolListAllVolumes(Pointer pool, PointerByReference volumes, int flags);
+    int virStoragePoolFree(Pointer pool);
+
+    Pointer virStorageVolGetName(Pointer volume);
+    Pointer virStorageVolGetPath(Pointer volume);
+    int virStorageVolGetInfo(Pointer volume, VirStorageVolInfo info);
+    int virStorageVolFree(Pointer volume);
 
     class VirNodeInfo extends Structure {
         public byte[] model = new byte[32];
@@ -61,6 +99,29 @@ public interface LibvirtLibrary extends Library {
         @Override
         protected List<String> getFieldOrder() {
             return List.of("state", "maxMem", "memory", "nrVirtCpu", "cpuTime");
+        }
+    }
+
+    class VirStoragePoolInfo extends Structure {
+        public int state;
+        public long capacity;
+        public long allocation;
+        public long available;
+
+        @Override
+        protected List<String> getFieldOrder() {
+            return List.of("state", "capacity", "allocation", "available");
+        }
+    }
+
+    class VirStorageVolInfo extends Structure {
+        public int type;
+        public long capacity;
+        public long allocation;
+
+        @Override
+        protected List<String> getFieldOrder() {
+            return List.of("type", "capacity", "allocation");
         }
     }
 }

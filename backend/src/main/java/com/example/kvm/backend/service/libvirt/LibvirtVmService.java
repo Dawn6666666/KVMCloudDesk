@@ -32,7 +32,7 @@ public class LibvirtVmService implements VmService {
         PointerByReference domainsRef = new PointerByReference();
         try {
             int count = lib.virConnectListAllDomains(conn, domainsRef, 0);
-            LibvirtUtil.check(count, "获取虚拟机列表失败");
+            check(count, "获取虚拟机列表失败");
             List<VmInfoDto> result = new ArrayList<>();
             Pointer domains = domainsRef.getValue();
             if (domains != null) {
@@ -64,7 +64,7 @@ public class LibvirtVmService implements VmService {
     @Override
     public void startVm(String name) {
         withDomain(name, domain -> {
-            LibvirtUtil.check(manager.library().virDomainCreate(domain), "启动虚拟机失败：" + name);
+            check(manager.library().virDomainCreate(domain), "启动虚拟机失败：" + name);
             return null;
         });
     }
@@ -72,7 +72,7 @@ public class LibvirtVmService implements VmService {
     @Override
     public void shutdownVm(String name) {
         withDomain(name, domain -> {
-            LibvirtUtil.check(manager.library().virDomainShutdown(domain), "关闭虚拟机失败：" + name);
+            check(manager.library().virDomainShutdown(domain), "关闭虚拟机失败：" + name);
             return null;
         });
     }
@@ -80,7 +80,7 @@ public class LibvirtVmService implements VmService {
     @Override
     public void destroyVm(String name) {
         withDomain(name, domain -> {
-            LibvirtUtil.check(manager.library().virDomainDestroy(domain), "强制关闭虚拟机失败：" + name);
+            check(manager.library().virDomainDestroy(domain), "强制关闭虚拟机失败：" + name);
             return null;
         });
     }
@@ -88,7 +88,7 @@ public class LibvirtVmService implements VmService {
     @Override
     public void suspendVm(String name) {
         withDomain(name, domain -> {
-            LibvirtUtil.check(manager.library().virDomainSuspend(domain), "暂停虚拟机失败：" + name);
+            check(manager.library().virDomainSuspend(domain), "暂停虚拟机失败：" + name);
             return null;
         });
     }
@@ -96,7 +96,7 @@ public class LibvirtVmService implements VmService {
     @Override
     public void resumeVm(String name) {
         withDomain(name, domain -> {
-            LibvirtUtil.check(manager.library().virDomainResume(domain), "恢复虚拟机失败：" + name);
+            check(manager.library().virDomainResume(domain), "恢复虚拟机失败：" + name);
             return null;
         });
     }
@@ -104,7 +104,7 @@ public class LibvirtVmService implements VmService {
     @Override
     public void deleteVm(String name) {
         withDomain(name, domain -> {
-            LibvirtUtil.check(manager.library().virDomainUndefine(domain), "删除虚拟机定义失败：" + name);
+            check(manager.library().virDomainUndefine(domain), "删除虚拟机定义失败：" + name);
             return null;
         });
     }
@@ -199,5 +199,11 @@ public class LibvirtVmService implements VmService {
 
     private interface DomainCallback<T> {
         T apply(Pointer domain);
+    }
+
+    private void check(int code, String message) {
+        if (code < 0) {
+            throw new BusinessException(message + "：" + manager.lastErrorMessage());
+        }
     }
 }
