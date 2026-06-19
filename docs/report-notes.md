@@ -5,6 +5,7 @@
 - `common`：共享 DTO、请求、响应。
 - `backend`：REST API、profile 切换、mock/libvirt 服务。
 - `client-swing`：桌面 GUI、HTTP API 封装、日志展示。
+- `client-web`：后续新增 Web GUI，复用后端 REST API。
 
 ## 核心类
 
@@ -19,6 +20,21 @@
 - `NetworkPanel`
 - `SnapshotPanel`
 - `StoragePanel`
+
+后续 Web 客户端核心文件建议：
+
+- `client-web/src/main.ts`
+- `client-web/src/router/index.ts`
+- `client-web/src/api/http.ts`
+- `client-web/src/api/kvm.ts`
+- `client-web/src/stores/logStore.ts`
+- `client-web/src/layouts/MainLayout.vue`
+- `client-web/src/views/DashboardView.vue`
+- `client-web/src/views/VmView.vue`
+- `client-web/src/views/ImageView.vue`
+- `client-web/src/views/NetworkView.vue`
+- `client-web/src/views/SnapshotView.vue`
+- `client-web/src/views/StorageView.vue`
 
 ## 双模式说明
 

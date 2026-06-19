@@ -1,12 +1,30 @@
 # KVM 云平台管理系统
 
-基于 Java 21、Spring Boot 和 Swing 的 KVM 云平台管理系统。项目采用客户端/服务端架构，Windows 开发阶段使用 `mock` profile 跑通完整链路，CentOS 部署阶段再切换到 `libvirt` profile。
+基于 Java 21、Spring Boot、Swing 和后续 Web 前端的 KVM 云平台管理系统。项目采用客户端/服务端架构，Windows 开发阶段使用 `mock` profile 跑通完整链路，CentOS 部署阶段再切换到 `libvirt` profile。
 
 ## 模块说明
 
 - `common`：DTO、请求对象、统一响应对象。
 - `backend`：Spring Boot REST API，支持 `mock` / `libvirt` profile。
 - `client-swing`：Swing 桌面客户端，使用 FlatLaf、MigLayout、Java HttpClient。
+- `client-web`：规划新增的 Vue 3 Web 客户端，复用现有 Spring Boot REST API，不直接依赖 libvirt。
+
+## Web 客户端规划
+
+后续将在现有项目上新增 `client-web`，作为和 `client-swing` 并行存在的前端客户端。后端 API、mock/libvirt profile、业务 DTO 均保持复用。
+
+规划技术栈：
+
+- Vue 3
+- Vite
+- TypeScript
+- Element Plus
+- Pinia
+- Vue Router
+- Axios
+- ECharts
+
+开发期建议使用 Vite proxy 将 `/api` 转发到 Spring Boot 后端，避免浏览器跨域问题。详见 `docs/client-web-plan.md`。
 
 ## Windows 开发运行
 
