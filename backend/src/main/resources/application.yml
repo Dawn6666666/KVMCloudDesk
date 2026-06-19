@@ -1,0 +1,13 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: kvm-cloud-backend
+
+kvm:
+  libvirt:
+    uri: qemu:///system
+    library: /usr/lib64/libvirt.so.0
+  image:
+    dir: /var/lib/libvirt/images

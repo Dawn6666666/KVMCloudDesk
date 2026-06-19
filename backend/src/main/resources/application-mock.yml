@@ -1,0 +1,12 @@
+spring:
+  config:
+    activate:
+      on-profile: mock
+
+kvm:
+  mode: mock
+  libvirt:
+    uri: mock:///system
+    library: none
+  image:
+    dir: ./mock-images

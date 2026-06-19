@@ -1,0 +1,12 @@
+spring:
+  config:
+    activate:
+      on-profile: libvirt
+
+kvm:
+  mode: libvirt
+  libvirt:
+    uri: qemu:///system
+    library: /usr/lib64/libvirt.so.0
+  image:
+    dir: /var/lib/libvirt/images
