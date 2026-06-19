@@ -32,26 +32,18 @@ http://192.168.61.130:8080
 
 ## 当前 libvirt 支持状态
 
-已在 CentOS 上验证：
+已在 CentOS 上验证以下功能的接口调用：
 
-- `GET /api/host/info`
-- `GET /api/vms`
-- `GET /api/vms/demo`
-- `POST /api/vms/demo/start`
-- `POST /api/vms/demo/suspend`
-- `POST /api/vms/demo/resume`
-- `POST /api/vms/demo/shutdown`
-- `POST /api/vms/demo/destroy`
-- `GET /api/networks`
-- `POST /api/networks/default/stop`
-- `POST /api/networks/default/start`
-- `GET /api/storage/pools`
-- `GET /api/storage/pools/default/volumes`
-- `GET /api/vms/demo/snapshots`
+- 获取宿主机系统信息（已优化获取主机名逻辑，解决 DNS 反向解析导致超时挂起的问题）
+- 查询虚拟机列表与详情
+- 虚拟机创建（支持基于已部署的系统镜像或光盘进行创建与定义）
+- 虚拟机删除（支持清除虚拟机定义并同步删除磁盘映像文件）
+- 虚拟机控制操作（启动、请求关机、强制关闭、暂停、恢复）
+- 虚拟网络查询与状态切换（启动和停止默认网络）
+- 存储池查询与存储卷明细查看
+- 快照全生命周期管理（支持快照创建、列表查询、恢复回滚与彻底删除）
 
-`shutdown` 依赖 guest 响应正常关机信号，测试中 demo 虚拟机可能不会立刻关机；`destroy` 可强制恢复到关闭状态。
-
-`demo` 当前磁盘为 raw 格式，libvirt 返回“raw 不支持内部快照”，因此 `POST /api/vms/demo/snapshots` 在该环境中会失败并返回明确错误。后续可使用 qcow2 虚拟机验证快照创建、恢复和删除。
+在测试中，对于使用 raw 磁盘格式的默认虚拟机（例如 demo），由于底层存储驱动限制无法支持内部快照，相关快照接口会返回格式不支持的业务错误。目前已在 CentOS 环境中通过新增部署 qcow2 磁盘格式的测试虚拟机，成功验证了快照创建、恢复回滚以及删除的全部生命周期。
 
 ---
 

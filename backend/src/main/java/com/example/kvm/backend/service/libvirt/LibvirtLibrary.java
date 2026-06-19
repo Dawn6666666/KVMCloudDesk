@@ -19,6 +19,7 @@ public interface LibvirtLibrary extends Library {
     int virConnectGetVersion(Pointer conn, LongByReference hvVer);
     int virNodeGetInfo(Pointer conn, VirNodeInfo info);
     long virNodeGetFreeMemory(Pointer conn);
+    Pointer virDomainDefineXML(Pointer conn, String xmlDesc, int flags);
     int virConnectListAllDomains(Pointer conn, PointerByReference domains, int flags);
 
     Pointer virDomainLookupByName(Pointer conn, String name);

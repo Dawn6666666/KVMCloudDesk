@@ -9,9 +9,11 @@ import com.sun.jna.ptr.IntByReference;
 import com.sun.jna.ptr.PointerByReference;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.w3c.dom.Document;
@@ -20,9 +22,12 @@ import org.w3c.dom.Document;
 @Profile("libvirt")
 public class LibvirtVmService implements VmService {
     private final LibvirtConnectionManager manager;
+    private final Path imageDir;
 
-    public LibvirtVmService(LibvirtConnectionManager manager) {
+    public LibvirtVmService(LibvirtConnectionManager manager,
+                            @Value("${kvm.image.dir}") String imageDir) {
         this.manager = manager;
+        this.imageDir = Path.of(imageDir);
     }
 
     @Override
@@ -58,7 +63,121 @@ public class LibvirtVmService implements VmService {
 
     @Override
     public VmInfoDto createVm(CreateVmRequest request) {
-        throw new BusinessException("libvirt 模式暂未实现创建虚拟机");
+        // 1. 检查是否同名
+        Pointer conn = manager.open();
+        try {
+            Pointer domain = manager.library().virDomainLookupByName(conn, request.name);
+            if (domain != null) {
+                manager.library().virDomainFree(domain);
+                throw new BusinessException("虚拟机 " + request.name + " 已经存在！");
+            }
+        } catch (Exception e) {
+            if (e instanceof BusinessException) {
+                throw (BusinessException) e;
+            }
+        } finally {
+            manager.close(conn);
+        }
+
+        // 2. 检查模板镜像文件
+        if (request.imageName == null || request.imageName.isBlank()) {
+            throw new BusinessException("请选择基础系统镜像");
+        }
+        Path srcImage = imageDir.resolve(request.imageName);
+        if (!Files.exists(srcImage)) {
+            throw new BusinessException("模板镜像文件不存在：" + srcImage);
+        }
+
+        // 3. 复制磁盘映像
+        String suffix = "";
+        String lowerName = request.imageName.toLowerCase();
+        if (lowerName.endsWith(".iso")) {
+            suffix = ".iso";
+        } else if (lowerName.endsWith(".qcow2")) {
+            suffix = ".qcow2";
+        } else if (lowerName.endsWith(".img")) {
+            suffix = ".img";
+        }
+        Path targetDisk = imageDir.resolve(request.name + suffix);
+        try {
+            Files.copy(srcImage, targetDisk, StandardCopyOption.REPLACE_EXISTING);
+        } catch (Exception ex) {
+            throw new BusinessException("拷贝虚拟机模板磁盘失败：" + ex.getMessage());
+        }
+
+        // 4. 拼装 XML 配置
+        boolean isIso = suffix.equals(".iso");
+        String diskXml = isIso ?
+            "    <disk type='file' device='cdrom'>\n" +
+            "      <driver name='qemu' type='raw'/>\n" +
+            "      <source file='" + targetDisk.toAbsolutePath().toString() + "'/>\n" +
+            "      <target dev='hda' bus='ide'/>\n" +
+            "      <readonly/>\n" +
+            "    </disk>\n" :
+            "    <disk type='file' device='disk'>\n" +
+            "      <driver name='qemu' type='" + (suffix.equals(".qcow2") ? "qcow2" : "raw") + "'/>\n" +
+            "      <source file='" + targetDisk.toAbsolutePath().toString() + "'/>\n" +
+            "      <target dev='vda' bus='virtio'/>\n" +
+            "    </disk>\n";
+
+        String xml = "<domain type='kvm'>\n" +
+            "  <name>" + request.name + "</name>\n" +
+            "  <uuid>" + java.util.UUID.randomUUID().toString() + "</uuid>\n" +
+            "  <memory unit='KiB'>" + (request.memoryMb * 1024) + "</memory>\n" +
+            "  <currentMemory unit='KiB'>" + (request.memoryMb * 1024) + "</currentMemory>\n" +
+            "  <vcpu placement='static'>" + request.cpuCount + "</vcpu>\n" +
+            "  <os>\n" +
+            "    <type arch='x86_64' machine='pc-i440fx-rhel10.0.0'>hvm</type>\n" +
+            "    <boot dev='" + (isIso ? "cdrom" : "hd") + "'/>\n" +
+            "  </os>\n" +
+            "  <features>\n" +
+            "    <acpi/>\n" +
+            "    <apic/>\n" +
+            "  </features>\n" +
+            "  <cpu mode='host-passthrough' check='none' migratable='on'/>\n" +
+            "  <clock offset='utc'>\n" +
+            "    <timer name='rtc' tickpolicy='catchup'/>\n" +
+            "    <timer name='pit' tickpolicy='delay'/>\n" +
+            "    <timer name='hpet' present='no'/>\n" +
+            "  </clock>\n" +
+            "  <on_poweroff>destroy</on_poweroff>\n" +
+            "  <on_reboot>restart</on_reboot>\n" +
+            "  <on_crash>destroy</on_crash>\n" +
+            "  <devices>\n" +
+            "    <emulator>/usr/libexec/qemu-kvm</emulator>\n" +
+            diskXml +
+            "    <controller type='usb' index='0' model='piix3-uhci'/>\n" +
+            "    <controller type='pci' index='0' model='pci-root'/>\n" +
+            "    <interface type='network'>\n" +
+            "      <source network='" + (request.networkName != null && !request.networkName.isBlank() ? request.networkName : "default") + "'/>\n" +
+            "      <model type='virtio'/>\n" +
+            "    </interface>\n" +
+            "    <graphics type='vnc' port='-1' autoport='yes' listen='0.0.0.0'>\n" +
+            "      <listen type='address' address='0.0.0.0'/>\n" +
+            "    </graphics>\n" +
+            "    <audio id='1' type='none'/>\n" +
+            "    <video>\n" +
+            "      <model type='vga' vram='16384' heads='1' primary='yes'/>\n" +
+            "    </video>\n" +
+            "    <memballoon model='virtio'/>\n" +
+            "  </devices>\n" +
+            "</domain>";
+
+        // 5. 调用 JNA 接口在 libvirt 中定义该虚拟机
+        conn = manager.open();
+        try {
+            Pointer domain = manager.library().virDomainDefineXML(conn, xml, 0);
+            if (domain == null) {
+                throw new BusinessException("定义虚拟机失败：" + manager.lastErrorMessage());
+            }
+            try {
+                return toDto(domain);
+            } finally {
+                manager.library().virDomainFree(domain);
+            }
+        } finally {
+            manager.close(conn);
+        }
     }
 
     @Override

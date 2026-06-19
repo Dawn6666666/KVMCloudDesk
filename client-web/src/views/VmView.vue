@@ -55,7 +55,7 @@
           <template #default="{ row }">
             <div class="actions-cell">
               <el-button 
-                v-if="row.state.toLowerCase() === 'shutoff'" 
+                v-if="row.state === '关闭'" 
                 size="small" 
                 type="success" 
                 plain
@@ -65,7 +65,7 @@
                 启动
               </el-button>
               <el-button 
-                v-if="row.state.toLowerCase() === 'running'" 
+                v-if="row.state === '运行'" 
                 size="small" 
                 type="warning" 
                 plain
@@ -75,7 +75,7 @@
                 关机
               </el-button>
               <el-button 
-                v-if="row.state.toLowerCase() === 'running'" 
+                v-if="row.state === '运行'" 
                 size="small" 
                 type="danger" 
                 plain
@@ -85,7 +85,7 @@
                 断电
               </el-button>
               <el-button 
-                v-if="row.state.toLowerCase() === 'running'" 
+                v-if="row.state === '运行'" 
                 size="small" 
                 type="info" 
                 plain
@@ -95,7 +95,7 @@
                 暂停
               </el-button>
               <el-button 
-                v-if="row.state.toLowerCase() === 'paused'" 
+                v-if="row.state === '暂停'" 
                 size="small" 
                 type="primary" 
                 plain
@@ -230,19 +230,17 @@ const formRules: FormRules = {
 };
 
 const translateState = (state: string) => {
-  const s = state.toLowerCase();
-  if (s === 'running') return '运行中';
-  if (s === 'shutoff') return '已关机';
-  if (s === 'paused') return '暂停中';
-  if (s === 'blocked') return '阻断中';
+  if (state === '运行') return '运行中';
+  if (state === '关闭') return '已关机';
+  if (state === '暂停') return '暂停中';
+  if (state === '异常') return '异常';
   return state;
 };
 
 const getStatusClass = (state: string) => {
-  const s = state.toLowerCase();
-  if (s === 'running') return 'active';
-  if (s === 'paused') return 'paused';
-  if (s === 'shutoff') return 'inactive';
+  if (state === '运行') return 'active';
+  if (state === '暂停') return 'paused';
+  if (state === '关闭') return 'inactive';
   return 'error';
 };
 

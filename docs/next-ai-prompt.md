@@ -1,137 +1,85 @@
-# 后续开发 Prompt
+# 后续维护 Prompt
 
-你正在接手 `D:\Code\Other\kvm` 项目，仓库已推送到 `https://github.com/Dawn6666666/KVMCloudDesk.git`。请先阅读 `RPD.md`、`环境信息.md`、`README.md`、`docs/architecture.md`、`docs/client-web-plan.md`、`docs/deploy-centos.md`。
+你正在接手 `d:/Code/Other/kvm` 项目。在开始工作之前，请先阅读 [RPD.md](file:///d:/Code/Other/kvm/RPD.md)、[环境信息.md](file:///d:/Code/Other/kvm/环境信息.md)、[README.md](file:///d:/Code/Other/kvm/README.md) 以及 [deploy-centos.md](file:///d:/Code/Other/kvm/docs/deploy-centos.md)。
 
 ## 当前项目状态
 
-项目为 Maven 多模块：
+项目为多模块结构，各模块职责如下：
 
-```text
-kvm-cloud-manager
-├── common
-├── backend
-├── client-swing
-└── docs
-```
+- `common`：提供 DTO、请求对象以及统一响应结构。
+- `backend`：提供 REST API，支持 mock 和 libvirt 双运行模式。在 libvirt 模式下，已实现通过 JNA 连接系统底层动态库 `/usr/lib64/libvirt.so.0` 和 `qemu:///system`。
+- `client-swing`：基于 Swing 编写的桌面客户端。
+- `client-web`：基于 Vue 3 和 TypeScript 编写的网页客户端，采用深色玻璃拟态设计，使用 ECharts 渲染系统资源监控图表，并集成全局操作日志追踪面板。
 
-已完成：
+CentOS 真实部署环境配置：
 
-- `common` DTO、Request、`ApiResponse`。
-- `backend` Spring Boot REST API。
-- `mock` profile 完整可用。
-- `libvirt` profile 已通过 JNA 连接 CentOS `/usr/lib64/libvirt.so.0` 和 `qemu:///system`。
-- `client-swing` 已有可运行基础版。
-- CentOS 可通过 `ssh centos` 连接。
+- 主机 IP：`192.168.61.130`
+- libvirt 连接路径：`qemu:///system`
+- libvirt 动态链接库：`/usr/lib64/libvirt.so.0`
+- 默认虚拟网络：`default`
+- 默认存储池：`default`（路径为 `/var/lib/libvirt/images`）
+- 测试用虚拟机：`demo`（使用 raw 磁盘），以及为了验证快照和虚拟机创建而部署的 `cirros-test-052`（使用 qcow2 磁盘）与 `tinycore-test`。
 
-CentOS 环境要点：
+已在 CentOS 真实环境中实测通过的接口与功能：
 
-```text
-IP: 192.168.61.130
-libvirt URI: qemu:///system
-libvirt library: /usr/lib64/libvirt.so.0
-已有 VM: demo
-default 网络: 存在
-default 存储池: 存在
-镜像目录: /var/lib/libvirt/images
-```
+- 宿主机系统信息：已优化获取主机名逻辑，移除了导致 15 秒反向解析超时的原生 virConnectGetHostname 调用，改为秒级读取。
+- 虚拟机列表及详情查询。
+- 虚拟机创建：支持在 libvirt 下依据所选的系统镜像或光盘进行创建并自动定义。
+- 虚拟机删除：支持在 libvirt 下取消虚拟机定义，并物理删除关联的磁盘映像文件。
+- 虚拟机控制操作：包括启动、关机、强制关闭、暂停、恢复。
+- 虚拟网络查询与开关：包括启动和停止默认网络。
+- 存储池与存储卷的列表查询。
+- 快照全生命周期管理：包括快照创建、列表查询、恢复回滚、彻底删除（已通过 qcow2 虚机实测通过）。
 
-已实测通过的 libvirt API：
+已知开发约束：
 
-- 宿主机信息
-- 虚拟机列表/详情
-- 启动、关机、强制关闭、暂停、恢复
-- 网络列表、default 网络停止/启动
-- 存储池列表、存储卷列表
-- 镜像目录扫描
-- 快照列表
+- 在 Windows 本地开发时，不要启动 libvirt 配置，只能运行 mock 配置。
+- 虚拟机控制中的关机动作依赖虚拟机内部的系统响应，若需要立即断电请使用强制关闭。
+- 业务代码中严禁通过 Runtime.getRuntime().exec()、ProcessBuilder 或其他任何方式调用 virsh 命令行。
 
-已知限制：
+## 常用命令与联调指南
 
-- `demo` 使用 raw 磁盘，libvirt 不支持 raw 内部快照，所以创建快照会返回真实错误。
-- `shutdown` 依赖 guest 响应 ACPI，demo 可能不会立刻关机，`destroy` 可强制关闭。
-- 业务代码禁止调用 `virsh`、`Runtime.exec`、`ProcessBuilder` 来实现功能。
-
-## 新任务目标
-
-不要删除 `client-swing`。在现有项目上新增 `client-web`，使用以下技术栈实现 Web 前端，并复用现有 Spring Boot API：
-
-- Vue 3
-- Vite
-- TypeScript
-- Element Plus
-- Pinia
-- Vue Router
-- Axios
-- ECharts
-
-## 开发要求
-
-1. 新增 `client-web` 目录，不改动后端业务接口，除非确实需要 CORS 或配置支持。
-2. 开发期优先使用 Vite proxy 转发 `/api` 到 `http://127.0.0.1:8080`。
-3. 封装 Axios：
-   - 统一处理 `ApiResponse<T>`。
-   - `success=false` 抛业务错误。
-   - 网络错误用 Element Plus 提示。
-4. 建立 TypeScript 类型，对应 common DTO。
-5. 使用 Pinia 存储：
-   - 后端地址/连接状态。
-   - 操作日志。
-6. 使用 Vue Router 建页面：
-   - Dashboard
-   - Host
-   - VMs
-   - Images
-   - Networks
-   - Snapshots
-   - Storage
-7. Dashboard 用 ECharts：
-   - 内存使用率
-   - VM 状态统计
-   - 存储池容量
-8. 所有危险操作需要确认弹窗。
-9. 所有异步按钮需要 loading 状态。
-10. 不要在前端直接访问 libvirt，不要调用命令行。
-
-## 推荐实现顺序
-
-1. 初始化 `client-web` Vite Vue TypeScript 项目。
-2. 安装 Element Plus、Pinia、Vue Router、Axios、ECharts。
-3. 配置 Vite proxy。
-4. 实现 `src/types/kvm.ts`。
-5. 实现 `src/api/http.ts` 和 `src/api/kvm.ts`。
-6. 实现 `MainLayout.vue`。
-7. 实现 Dashboard、Host、VM 页面。
-8. 实现 Images、Networks、Snapshots、Storage 页面。
-9. 启动 mock 后端测试 Web 前端。
-10. 通过 `ssh centos` 部署/连接 libvirt 后端测试真实数据。
-11. 更新 README 和 docs。
-12. `npm run build`、`mvn clean package -DskipTests` 验证。
-13. 提交并推送，提交信息使用中文且详细。
-
-## 常用命令
-
-Windows 本地 JDK 21：
-
-```powershell
-$env:JAVA_HOME='C:\Users\24831\.jdks\ms-21.0.10'
-$env:Path="$env:JAVA_HOME\bin;$env:Path"
-```
-
-后端 mock：
+### 后端 mock 运行模式
 
 ```bash
 java -jar backend/target/kvm-cloud-backend.jar --spring.profiles.active=mock
 ```
 
-CentOS libvirt 后端测试：
+### CentOS 真实 libvirt 后端部署
 
-```bash
-scp backend/target/kvm-cloud-backend.jar centos:/tmp/kvm-cloud-backend.jar
-ssh centos "cd /tmp; nohup java -jar /tmp/kvm-cloud-backend.jar --spring.profiles.active=libvirt --server.address=127.0.0.1 --server.port=18080 > /tmp/kvm-cloud-backend.log 2>&1 < /dev/null &"
-ssh centos "curl -s http://127.0.0.1:18080/api/vms"
-```
+1. 编译后端：
+   ```bash
+   mvn clean package -DskipTests
+   ```
+2. 将 jar 包复制并部署到 CentOS 服务器上，以 libvirt 模式启动：
+   ```bash
+   java -jar kvm-cloud-backend.jar --spring.profiles.active=libvirt --server.address=0.0.0.0 --server.port=8080
+   ```
 
-检查业务代码禁用项：
+### 网页客户端开发与远程联调
+
+1. 进入网页客户端目录并启动调试服务器：
+   ```bash
+   cd client-web
+   npm install
+   npm run dev
+   ```
+2. 本地调试默认代理至本地 8080 端口。若需直接联调 CentOS 上的真实后端，可修改 [vite.config.ts](file:///d:/Code/Other/kvm/client-web/vite.config.ts) 中的代理配置：
+   ```ts
+   server: {
+     proxy: {
+       '/api': {
+         target: 'http://192.168.61.130:8080',
+         changeOrigin: true
+       }
+     }
+   }
+   ```
+   修改后本地网页端将直接通过代理调用远程 CentOS 后端，实现真实硬件环境下的前端交互调试。
+
+### 检查代码禁用项
+
+在代码修改后，可通过以下命令检查是否无意中引入了被禁用的 virsh 命令行调用：
 
 ```bash
 rg "Runtime\.getRuntime|ProcessBuilder|virsh" backend client-swing common client-web

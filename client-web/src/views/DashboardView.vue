@@ -80,7 +80,7 @@ let statusChart: echarts.ECharts | null = null;
 let storageChart: echarts.ECharts | null = null;
 
 const runningVmsCount = computed(() => {
-  return vms.value.filter(vm => vm.state.toLowerCase() === 'running').length;
+  return vms.value.filter(vm => vm.state === '运行').length;
 });
 
 const totalStoragePoolCapacity = computed(() => {
@@ -161,15 +161,15 @@ const renderStatusChart = () => {
 
   const stateCounts: Record<string, number> = {};
   vms.value.forEach(vm => {
-    const s = vm.state.toLowerCase();
+    const s = vm.state;
     stateCounts[s] = (stateCounts[s] || 0) + 1;
   });
 
   const rawData = [
-    { name: '运行中', key: 'running', color: '#15803d' },
-    { name: '已关机', key: 'shutoff', color: '#746c63' },
-    { name: '暂停中', key: 'paused', color: '#b45309' },
-    { name: '阻断中', key: 'blocked', color: '#b91c1c' }
+    { name: '运行中', key: '运行', color: '#15803d' },
+    { name: '已关机', key: '关闭', color: '#746c63' },
+    { name: '暂停中', key: '暂停', color: '#b45309' },
+    { name: '阻断中', key: '异常', color: '#b91c1c' }
   ];
 
   const chartData = rawData.map(item => ({

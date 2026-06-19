@@ -153,10 +153,10 @@ const formRules: FormRules = {
 };
 
 const translateState = (state: string) => {
-  const s = state.toLowerCase();
-  if (s === 'running') return '运行中';
-  if (s === 'shutoff') return '已关机';
-  if (s === 'paused') return '暂停';
+  if (state === '运行') return '运行中';
+  if (state === '关闭') return '已关机';
+  if (state === '暂停') return '暂停中';
+  if (state === '异常') return '异常';
   return state;
 };
 

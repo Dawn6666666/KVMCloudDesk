@@ -178,17 +178,17 @@
 
 ## Anti-Patterns (Do NOT Use)
 
-- ❌ Light mode default
-- ❌ Slow rendering
+- [禁止] Light mode default
+- [禁止] Slow rendering
 
 ### Additional Forbidden Patterns
 
-- ❌ **Emojis as icons** — Use SVG icons (Heroicons, Lucide, Simple Icons)
-- ❌ **Missing cursor:pointer** — All clickable elements must have cursor:pointer
-- ❌ **Layout-shifting hovers** — Avoid scale transforms that shift layout
-- ❌ **Low contrast text** — Maintain 4.5:1 minimum contrast ratio
-- ❌ **Instant state changes** — Always use transitions (150-300ms)
-- ❌ **Invisible focus states** — Focus states must be visible for a11y
+- [禁止] **Emojis as icons** — Use SVG icons (Heroicons, Lucide, Simple Icons)
+- [禁止] **Missing cursor:pointer** — All clickable elements must have cursor:pointer
+- [禁止] **Layout-shifting hovers** — Avoid scale transforms that shift layout
+- [禁止] **Low contrast text** — Maintain 4.5:1 minimum contrast ratio
+- [禁止] **Instant state changes** — Always use transitions (150-300ms)
+- [禁止] **Invisible focus states** — Focus states must be visible for a11y
 
 ---
 
