@@ -7,24 +7,34 @@
 - `common`：DTO、请求对象、统一响应对象。
 - `backend`：Spring Boot REST API，支持 `mock` / `libvirt` profile。
 - `client-swing`：Swing 桌面客户端，使用 FlatLaf、MigLayout、Java HttpClient。
-- `client-web`：规划新增的 Vue 3 Web 客户端，复用现有 Spring Boot REST API，不直接依赖 libvirt。
+- `client-web`：基于 Vue 3 + Vite + TypeScript + Element Plus + Pinia + ECharts 的 Web 客户端，复用现有 Spring Boot REST API，不直接依赖 libvirt。
 
-## Web 客户端规划
+## Web 客户端运行与开发
 
-后续将在现有项目上新增 `client-web`，作为和 `client-swing` 并行存在的前端客户端。后端 API、mock/libvirt profile、业务 DTO 均保持复用。
+Web 客户端已全部开发完成，提供宿主机参数展示、虚拟机全状态生命周期管理、快照回滚拍摄、桥接网络管理、存储卷明细查看及 ECharts 仪表盘等功能。
 
-规划技术栈：
+### 运行开发服务器
 
-- Vue 3
-- Vite
-- TypeScript
-- Element Plus
-- Pinia
-- Vue Router
-- Axios
-- ECharts
+1. 确保 Spring Boot 后端（如 mock 模式）正常启动在 8080 端口。
+2. 进入 `client-web` 目录，执行以下命令安装依赖并启动服务：
 
-开发期建议使用 Vite proxy 将 `/api` 转发到 Spring Boot 后端，避免浏览器跨域问题。详见 `docs/client-web-plan.md`。
+```bash
+cd client-web
+npm install
+npm run dev
+```
+
+3. 启动后通过浏览器访问命令行输出的调试地址（默认为 `http://localhost:5173`）即可。
+
+### 生产编译打包
+
+在 `client-web` 目录下执行以下命令：
+
+```bash
+npm run build
+```
+
+打包生成的文件位于 `client-web/dist`。
 
 ## Windows 开发运行
 

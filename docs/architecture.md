@@ -25,6 +25,9 @@ CentOS Spring Boot 后端 libvirt profile
 
 ## 客户端演进
 
-当前已实现 `client-swing`。后续计划新增 `client-web`，使用 Vue 3 + Vite + TypeScript + Element Plus 实现浏览器端管理界面。
+目前系统已完整实现 `client-swing` 和 `client-web` 双重客户端支持。
 
-`client-web` 不新增后端业务协议，不直接调用 libvirt，不调用命令行，只通过 Axios 访问已有 `/api` REST 接口。Swing 客户端保留，Web 客户端作为并行展示端。
+- `client-swing`：主要面向桌面原生应用程序要求，使用 Swing 开发。
+- `client-web`：作为并行的高级客户端，基于 Vue 3 + Vite + TypeScript 构建，通过 Axios 访问已有的 `/api` 接口。Web 端采用深色毛玻璃及渐变设计系统，具备更好的图表呈现与运行日志追溯体验。
+
+两套客户端均通过统一的 HTTP API 与后端 Spring Boot 交互，不直接依赖 libvirt 动态链接库或执行任何 virsh 命令行程序。
