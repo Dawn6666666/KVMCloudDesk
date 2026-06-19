@@ -39,7 +39,19 @@ java -jar kvm-cloud-backend.jar \
   --server.port=8080
 ```
 
-当前阶段 `libvirt` profile 仅保留隔离骨架，真实 JNA 实现将在 mock 全链路完成后开发。
+当前 `libvirt` profile 已实现最小真实链路：
+
+- 连接 `qemu:///system`
+- 获取宿主机信息
+- 列出真实虚拟机
+- 获取虚拟机详情
+- 启动虚拟机
+- 请求虚拟机关机
+- 强制关闭虚拟机
+- 暂停虚拟机
+- 恢复虚拟机
+
+说明：`shutdown` 是向 guest 发送正常关机请求，真实虚拟机可能因为 ACPI/系统状态没有立即关机；需要立即关闭时使用“强制关闭”。
 
 ## API 列表
 

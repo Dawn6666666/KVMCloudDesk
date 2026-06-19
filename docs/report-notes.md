@@ -22,7 +22,9 @@
 
 ## 双模式说明
 
-`mock` profile 使用内存数据完成 Windows 调试。`libvirt` profile 后续通过 JNA 加载 `/usr/lib64/libvirt.so.0` 并连接 `qemu:///system`。
+`mock` profile 使用内存数据完成 Windows 调试。`libvirt` profile 通过 JNA 加载 `/usr/lib64/libvirt.so.0` 并连接 `qemu:///system`。
+
+当前真实 libvirt 已完成宿主机信息、虚拟机列表、虚拟机详情、启动、关机、强制关闭、暂停、恢复。镜像列表在 libvirt profile 下扫描 `/var/lib/libvirt/images`，网络、快照、存储后续继续接入 libvirt API。
 
 ## 运行截图位置
 
