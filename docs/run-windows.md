@@ -4,7 +4,7 @@
 
 - JDK 21
 - Maven
-- Node.js (仅用于 Web 客户端)
+- Node.js，仅用于 Web 客户端
 
 构建系统：
 
@@ -33,9 +33,21 @@ npm install
 npm run dev
 ```
 
-运行后，通过浏览器访问 `http://localhost:5173`。Vite 开发服务器会自动将以 `/api` 开头的网络请求代理转发至本地后端的 8080 端口。
+运行后，通过浏览器访问 `http://localhost:5173`。Vite 开发服务器会自动将以 `/api` 开头的网络请求代理转发至后端。
 
-如果需要将本地前端与远程 CentOS 上运行的真实后端进行联调，可以直接修改 [vite.config.ts](file:///d:/Code/Other/kvm/client-web/vite.config.ts) 中的代理配置：
+> **注意**：当前 `vite.config.ts` 中代理默认指向 CentOS 远程后端 `http://192.168.61.130:8080`。若要在本地 mock 模式下开发，需将 `target` 改为 `http://127.0.0.1:8080`：
+> ```ts
+> server: {
+>   proxy: {
+>     '/api': {
+>       target: 'http://127.0.0.1:8080',
+>       changeOrigin: true
+>     }
+>   }
+> }
+> ```
+
+如果需要将本地前端与远程 CentOS 上运行的真实后端进行联调，确保 [vite.config.ts](file:///d:/Code/Other/kvm/client-web/vite.config.ts) 中的代理 target 指向 CentOS 地址：
 ```ts
 server: {
   proxy: {

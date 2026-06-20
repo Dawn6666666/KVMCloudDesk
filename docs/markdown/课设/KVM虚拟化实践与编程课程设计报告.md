@@ -16,368 +16,668 @@
 > 指导教师： 单平平
 
 南阳理工学院计算机与软件学院
+
 2026年06月
 
 ---
 
 # 1 虚拟化环境的搭建
 
-## 1.1 课题研究的背景与意义
-随着企业信息化进程的加速，私有云和混合云平台在中小型企业及高校教学实验室中的应用越来越广泛。虚拟化作为云平台的最核心支撑技术，其管理效率、响应速度和稳定性直接关系到云平台的运营质量。KVM与libvirt作为开源社区中最为主流的虚拟化引擎和管理套件，提供了强大的虚拟化底层支撑能力。然而，传统的 libvirt 命令行管理工具（如 virsh）对于普通的系统管理员而言存在较高的学习与操作门槛，不仅命令繁多、参数复杂，且在网络配置和状态实时展示上缺乏直观性。因此，设计并开发一套可视化的云平台管理系统，将物理主机的硬件指标实时监控、多台虚拟机的生命周期管控、快照以及存储卷进行集中可视管理，对于降低私有云运维难度、提升虚拟化资源利用效率具有非常重要的实用价值。
+## 1.1 课题研究背景
 
-## 1.2 CentOS Stream 10 虚拟化环境搭建步骤
-本系统运行的真实物理服务器采用 CentOS Stream 10 操作系统，嵌套部署于 VMware 虚拟机环境。具体虚拟化环境搭建步骤如下：
+　　虚拟化技术可以把一台物理主机划分为多台相互隔离的虚拟机。它常用于教学实验、私有云平台和服务器资源整合。KVM 是 Linux 内核提供的虚拟化方案，libvirt 提供统一的管理接口，可以管理虚拟机、网络、存储池和快照。
 
-### 1.2.1 物理虚拟化支持检测与内核模块加载
-在 CentOS 服务器上执行以下命令以确认 CPU 是否支持硬件虚拟化（AMD-V）及内核 KVM 模块是否正确加载：
+　　传统管理方式主要依赖命令行。命令行适合运维人员调试，但不适合展示资源状态，也不利于初学者理解虚拟机生命周期。本课题设计一个云平台管理系统，通过图形界面调用后端 REST API，实现宿主机信息查看、虚拟机管理、网络管理、存储管理和快照管理。
+
+　　本系统的开发分为两个阶段。Windows 阶段使用 mock 数据完成前后端联调。CentOS 阶段使用 libvirt 连接真实 KVM 环境。这样既能降低本地开发成本，也能保证最终功能可以在真实虚拟化环境中运行。
+
+## 1.2 CentOS Stream 10 环境
+
+　　后端真实部署环境为 CentOS Stream 10。该系统运行在 VMware 虚拟机中，并已开启嵌套虚拟化。部署拓扑如图1-1所示。
+
+```mermaid
+%%{init: {"theme": "base"}}%%
+flowchart TB
+    Windows["Windows 开发机<br/>浏览器 / Swing 客户端"]
+
+    subgraph VMHost["VMware 虚拟化环境"]
+        CentOS["CentOS Stream 10<br/>Spring Boot 后端 :8080"]
+        Libvirt["libvirt<br/>qemu:///system"]
+        KVM["KVM / QEMU<br/>虚拟机实例"]
+        Network["default NAT 网络<br/>virbr0: 192.168.122.1/24"]
+        Storage["default 存储池<br/>/var/lib/libvirt/images"]
+    end
+
+    Windows -->|HTTP JSON<br/>192.168.61.130:8080| CentOS
+    CentOS --> Libvirt
+    Libvirt --> KVM
+    KVM --> Network
+    KVM --> Storage
+```
+
+图1-1 KVM 云平台部署拓扑图
+
+　　本部署拓扑图清晰界定了Windows开发联调期（通过策略模式注入的假数据）与CentOS真实物理运行期（直接通过动态加载库与宿主机套接字交互）的物理隔离，旨在以低成本的单机环境换取高稳定性的底层联调。
+
+　　该环境使用 OpenJDK 21 运行后端服务，libvirt 连接地址为 `qemu:///system`，动态库路径为 `/usr/lib64/libvirt.so.0`。默认虚拟网络为 `default`，默认存储池也为 `default`。
+
+## 1.3 虚拟化能力检查
+
+　　在 CentOS 中通过以下命令检查虚拟化能力：
+
 ```bash
-# 1. 检查物理 CPU 虚拟化指令集（包含 svm 标志代表支持 AMD-V，vmx 代表 Intel VT-x）
 grep -E 'vmx|svm' /proc/cpuinfo
-
-# 2. 检测内核 KVM 模块加载状态，确保 kvm 与 kvm_amd 均已装载
 lsmod | grep kvm
-
-# 3. 确认 /dev/kvm 设备全局可读写权限
 ls -la /dev/kvm
-
-# 4. 确认嵌套虚拟化（Nested Virtualization）已开启，此配置对于虚拟机中运行虚拟机至关重要
 cat /sys/module/kvm_amd/parameters/nested
 ```
-经检测，CPU 核包含 svm 标志，内核 kvm_amd 模块已成功加载，且嵌套虚拟化参数返回 `1`，表示嵌套虚拟化已顺利开启。
 
-### 1.2.2 模块化虚拟化服务安装与启动
-CentOS Stream 10 抛弃了传统的单一守护进程 `libvirtd`，改用模块化的守护进程架构。在此架构中，针对 QEMU 的服务为 `virtqemud`：
+　　检测结果显示，CPU 包含 `svm` 标志，`kvm_amd` 模块已加载，`/dev/kvm` 设备存在，嵌套虚拟化参数为 `1`。这说明该环境可以运行 KVM 虚拟机。
+
+> **虚拟机截图指引**：请在 CentOS 部署服务器终端运行上述 1.3 节的 4 条能力检查命令，并截取终端完整的命令输出结果，命名为 `image_virtualization_check.png` 存放在 `报告模板v5_media/media/` 目录下。
+
+![图1-2 宿主机虚拟化能力命令行检测截图](报告模板v5_media/media/image_virtualization_check.png)
+
+　　CentOS Stream 10 使用模块化 libvirt 服务。QEMU 相关服务为 `virtqemud`，不是传统的 `libvirtd`。因此，`libvirtd` 显示 inactive 并不表示 libvirt 不可用。实际连接使用：
+
 ```bash
-# 1. 启动并启用 QEMU 守护进程 socket 激活机制
-systemctl enable virtqemud.socket --now
-systemctl start virtqemud
-
-# 2. 启动虚拟锁管理辅助服务，避免多实例并发修改虚拟机磁盘镜像导致冲突
-systemctl enable virtlockd --now
-systemctl start virtlockd
-
-# 3. 验证 libvirt 服务连接状态
 virsh -c qemu:///system list --all
 ```
-在模块化架构下，直接执行 `systemctl status libvirtd` 显示 `inactive` 是正常现象，`virtqemud` 会在接收到 client 端请求时自动拉起。
 
-### 1.2.3 开放防火墙端口
-为了支持本地开发端或网页浏览器直接远程调用 CentOS 宿主机上的 API 接口，需要放行后端服务所占用的 8080 端口，并放行 VNC 虚拟桌面所需的 5900-5910 端口：
+　　该命令可列出已有虚拟机 `demo`。
+
+## 1.4 网络与防火墙配置
+
+　　为保证 Windows 客户端或浏览器能够正常访问 CentOS 后端服务，需确保 8080 端口已开放。在 CentOS 部署服务器上，可以通过查询防火墙规则以及端口监听状态进行验证：
+
 ```bash
-# 1. 放行 8080 网关端口与 5901 VNC 端口
-firewall-cmd --add-port=8080/tcp --permanent
-firewall-cmd --add-port=5901/tcp --permanent
-firewall-cmd --reload
+firewall-cmd --list-ports
+ss -tlnp | grep 8080
 ```
 
-## 1.3 关键系统配置优化（故障解决）
-在部署联调过程中，我们针对 CentOS 宿主机环境进行了两个至关重要的底层系统级调优，彻底排除了两项隐蔽的底层运行故障：
+　　此外，默认虚拟网络为 `default`，其转发模式为 NAT，对应宿主机侧的虚拟网桥为 `virbr0`，网段为 `192.168.122.1/24`。可通过以下命令查看虚拟网络状态与网桥配置：
 
-### 1.3.1 解决主机名反向解析导致的 15 秒启动延迟
-在真实硬件环境实测中发现，执行 `virsh start` 启动虚拟机时会卡顿整整 15 秒才返回成功，同时前端接口也会出现 `timeout of 15000ms exceeded` 超时报错。
-*   **故障定位**：经分析，系统主机名为 `centos`，但在本地的 `/etc/hosts` 中并未配置主机名的本地回环映射。当 libvirt 在创建虚机网口、网桥或建立连接时，会调用系统函数查询宿主机名，由于本地未命中，会转为向外部 DNS 发送查询，直到 15 秒超时等待后才 fallback 返回，引起严重的阻塞。
-*   **解决方案**：在 CentOS 虚拟机的 `/etc/hosts` 文件末尾追加本机的回环解析映射，使系统查询立即在本地命中：
-    ```text
-    127.0.0.1 centos
-    ::1 centos
-    ```
-*   **优化结果**：修复后，主机名解析时间由 **15.108秒** 降至 **0.002秒**，`virsh start` 虚拟机启动延迟由 **15.169秒** 降至 **0.148秒**，网页端响应彻底恢复为毫秒级。
+```bash
+virsh net-list --all
+ip addr show virbr0
+```
 
-### 1.3.2 排除废弃模拟器程序干扰，修复 QEMU 版本检测
-在请求 `GET /api/host/info` 获取系统参数时，接口返回的 `qemuVersion` 总是为 `"未知"`。
-*   **故障定位**：检查 `/tmp/kvm.log` 后端日志，注意到 libvirt 会抛出错误：`不支持的配置：QEMU 版本 >= 6.2.0 是必需的，但找到了 4 1.0`。经排查，CentOS 宿主机中除了系统自带的 `/usr/libexec/qemu-kvm` (10.1.0) 外，在 `/usr/local/bin/` 目录下还残留了一个老旧的独立 QEMU 4.1.0 运行程序。libvirt 在探测系统能力时由于扫描到了该低版本模拟器且判定不合规，导致能力探测机制发生级联崩溃，进而使 `virConnectGetVersion` API 直接返回失败。
-*   **解决方案**：重命名屏蔽该废弃程序，并重启守护服务使 libvirt 聚焦于系统默认的主体模拟器：
-    ```bash
-    mv /usr/local/bin/qemu-system-x86_64 /usr/local/bin/qemu-system-x86_64.bak
-    systemctl restart virtqemud
-    ```
-*   **优化结果**：`virsh version` 获取 hypervisor 版本成功输出为 `QEMU 10.1.0`，后端接口成功正确展示 `QEMU 模拟器版本: 10.1.0`。
+> **虚拟机截图指引**：在 CentOS 服务器上运行上述 4 条验证指令，以证明 8080 端口正常开放、后端服务处于监听状态，并且 KVM 虚拟网络处于活跃状态。截取命令的输出结果，命名为 `image_network_firewall_check.png` 存放在 `报告模板v5_media/media/` 目录下，并替换下方的占位图。
 
-![图1-1 虚拟化环境搭建与优化完成截图](报告模板v5_media/media/image_placeholder.png)
-*(图1-1 虚拟化环境搭建与优化完成截图)*
+![图1-3 宿主机网络与防火墙配置验证截图](报告模板v5_media/media/image_network_firewall_check.png)
 
 ---
 
 # 2 需求分析
 
-## 2.1 系统整体需求与划分
-本系统面向私有云网络管理员，要求系统全功能替代命令行控制台。核心需求具体细分为以下五个模块：
-1.  **宿主机资源看板**：获取并图形化展示宿主机硬件规格（内存总量、剩余内存、CPU规格主频、核心数等）及虚拟化组件版本号（libvirt版本、QEMU版本等）。
-2.  **镜像生命周期管理**：支持从光盘（ISO格式）或磁盘映像（qcow2/raw格式）添加已部署的系统模版，作为虚拟机定义的镜像源，且支持对已添加的模板执行物理删除。
-3.  **虚拟机统一生命周期管控**：支持虚拟机新建配置（名称、核心数、内存空间、磁盘配额、镜像绑定、局域网段绑定等），支持虚拟机实例的启动、暂停、恢复、关机（ACPI指令下发）、断电（物理强制关闭）及定义注销（并清除关联的物理磁盘）。
-4.  **虚拟网络调配**：管理 libvirt 网桥（`default`），实时查询子网段及网桥分配状态，提供启停 NAT 网络的功能。
-5.  **无损快照管理**：支持对运行中或关闭中的虚机（qcow2磁盘格式）进行瞬间快照拍摄、指定快照版本回滚，以及冗余快照的删除。
+## 2.1 系统功能需求
 
-## 2.2 核心业务用例规约设计
+　　本系统面向虚拟化平台管理员，主要完成 KVM 资源的可视化管理。系统分为后端服务和前端客户端。后端负责连接 mock 数据或 libvirt；前端负责展示资源状态并发起管理操作。
 
-为清晰化描述系统管理员的核心操作逻辑，下表针对“正常安全关机”这一高复杂度业务设计了详细的用例规约。
+　　主要功能包括：
 
-### 表2-1 正常安全关机（Shutdown）用例规约表
+1. 宿主机信息查看：展示主机名、CPU、内存、KVM 状态、libvirt 版本和 QEMU 版本。
+2. 虚拟机管理：展示虚拟机列表，支持启动、关机、强制关闭、暂停、恢复、创建和删除。
+3. 镜像管理：展示镜像文件，支持添加和删除镜像记录。
+4. 网络管理：展示 libvirt 网络，支持启动和停止网络。
+5. 快照管理：展示虚拟机快照，支持创建、恢复和删除快照。
+6. 存储管理：展示存储池和存储卷信息。
+7. 双模式运行：Windows 开发使用 mock profile，CentOS 部署使用 libvirt profile。
 
-| 规约项目 | 详细描述内容 |
-| :--- | :--- |
-| **用例名称** | 安全关闭虚拟机实例（Shutdown VM） |
-| **用例参与者** | 系统管理员 |
-| **前置条件** | 目标虚拟机实例在系统列表中处于“运行”或“暂停”状态 |
-| **基本事件流** | 1. 管理员在前端列表中定位正在运行的虚机，点击“关机”操作；<br>2. 系统弹出“安全关机控制”进度条弹窗，状态显示 `正在等待虚拟机关闭`；<br>3. 后端向虚拟机下发 ACPI 关机指令信号；<br>4. 前端启动 1.5 秒频率的状态轮询，监测虚机实时状态，进度条平滑递增；<br>5. 虚机内部系统响应该关机信号，安全保存数据并正常关闭电源；<br>6. 轮询检测到虚机状态已转为“关闭”，进度条置为 100% 成功状态；<br>7. 系统在 1.2 秒后自动隐藏弹窗，写入 `虚拟机已成功安全关机` 审计日志，并刷新列表。 |
-| **异常事件流** | **异常 1a. 虚拟机不支持 ACPI 或内部关机守护进程（如 acpid）未运行**：<br>&nbsp;&nbsp;&nbsp;&nbsp;1. 发送关机信号后，虚拟机状态在 22.5 秒内始终未能转为“关闭”；<br>&nbsp;&nbsp;&nbsp;&nbsp;2. 轮询达到 15 次上限，前端判定响应超时，进度条变红进入 Exception 异常状态；<br>&nbsp;&nbsp;&nbsp;&nbsp;3. 弹窗中吐出引导文本并显示出 `强制断电` 红色按钮，写入 `虚拟机关机响应超时` 错误日志；<br>&nbsp;&nbsp;&nbsp;&nbsp;4. 管理员可点击 `强制断电` 下发物理销毁电源指令，虚机强行关闭。 |
-| **后置条件** | 虚拟机状态更新为“关闭”，释放占用的宿主机 CPU 与内存运行资源 |
+## 2.2 非功能需求
 
-## 2.3 系统用例图
+　　系统需要满足以下要求：
 
-### 2.3.1 系统管理员整体用例图
-![图2-1 系统管理员整体用例图](报告模板v5_media/media/image_placeholder.png)
-*(图2-1 系统管理员整体用例图)*
+1. 后端使用 Spring Boot 提供 REST API。
+2. 后端通过 Spring Profile 区分 `mock` 和 `libvirt`。
+3. 模拟模式不加载 Linux 的 libvirt 动态库。
+4. 前端只通过 HTTP 调用后端，不直接调用 libvirt。
+5. 业务代码不使用 `virsh` 命令实现功能。
+6. 页面操作应包含结果与超时提示。
+7. 危险操作需要二次确认。
 
-### 2.3.2 虚拟机生命周期管理子用例图
-![图2-2 系统管理员虚拟机生命周期管理用例图](报告模板v5_media/media/image_placeholder.png)
-*(图2-2 系统管理员虚拟机生命周期管理用例图)*
+## 2.3 关机用例
+
+　　虚拟机关机用例的前置条件是虚拟机处于运行或暂停状态。正常情况下，系统向虚拟机发送 ACPI 关机信号并等待状态变更；若等待超时，则引导管理员执行强制断电。
+
+```mermaid
+%%{init: {"theme": "base"}}%%
+sequenceDiagram
+    actor Admin as 系统管理员
+    participant Web as 前端页面
+    participant Backend as 后端服务
+    participant Libvirt as libvirt / KVM
+
+    Admin->>Web: 选择虚拟机并点击关机
+    Web->>Admin: 弹出确认提示
+    Admin->>Web: 确认关机
+    Web->>Backend: POST /api/vms/{name}/shutdown
+    Backend->>Libvirt: virDomainShutdown
+    Web->>Backend: 轮询虚拟机状态
+    alt 状态变为关闭
+        Backend-->>Web: 返回关闭状态
+        Web-->>Admin: 刷新列表并记录成功日志
+    else 轮询超时
+        Web-->>Admin: 提示可强制断电
+        Admin->>Web: 确认强制断电
+        Web->>Backend: POST /api/vms/{name}/destroy
+        Backend->>Libvirt: virDomainDestroy
+    end
+```
+
+　　本时序图展示了虚拟机关机在异常状态下的自愈降级处理流程。当管理员发出关机指令后，系统通过前后台协同进行不间断的轻量轮询；一旦超过最大轮询阈值，系统即判定虚拟机系统出现崩溃或挂起，并自动开启强制关闭选项，从而在安全性与响应体验间取得平衡。
+
+## 2.4 系统用例图
+
+![图2-1 系统管理员整体用例图](./use_case_overview.svg)
+
+图2-1 系统管理员整体用例图
+
+　　本用例图展示了系统管理员对于虚拟化资源管理所拥有的六大核心主用例。该用例划分明确了操作的权限范畴，并将这些细粒度的交互操作收拢在统一的管控界面中，大幅减小了系统管理员的手动维护开销。
+
+```mermaid
+%%{init: {"theme": "base"}}%%
+stateDiagram-v2
+    direction LR
+    state "已定义" as Defined
+    state "运行中" as Running
+    state "已暂停" as Paused
+    state "已关闭" as Shutoff
+    state "强制断电" as Destroyed
+    state "已删除" as Deleted
+
+    [*] --> Defined: 创建
+    Defined --> Running: 启动
+    Running --> Paused: 暂停
+    Paused --> Running: 恢复
+    Running --> Shutoff: 安全关机
+    Paused --> Shutoff: 关机
+    Running --> Destroyed: 关机超时
+    Destroyed --> Shutoff: virDomainDestroy
+    Shutoff --> Running: 启动
+    Shutoff --> Deleted: 删除并清理磁盘
+    Deleted --> [*]
+```
+
+图2-2 虚拟机生命周期状态流转图
+
+　　本生命周期流转图明确了虚拟机状态流转的约束规则。后端业务层严格遵照该状态机执行操作（如已暂停的虚拟机必须通过恢复操作方能再次触发关机），保证了由于状态非同步引起的数据污染或写操作冲突在边界上被有效拦截。
 
 ---
 
 # 3 系统设计
 
-## 3.1 系统物理与逻辑架构设计
-系统采用前后端完全分离的 C/S 结构：
-*   **Windows 开发 mock 数据环境**：为了让开发人员在 Windows 宿主机（无 KVM 和 libvirt C 库）上能够直接调试前端的复杂网络与页面，设计了 MockProfile，使用基于 ConcurrentHashMap 构建的内存模拟器替代真实的 libvirt 接口，实现完整的业务链路模拟，确保 Windows 本地启动正常，不发生加载 Linux `.so` 的故障。
-*   **CentOS 真实部署环境**：激活 LibvirtProfile，后端引入 JNA，映射 `/usr/lib64/libvirt.so.0` 的原生 C 语言接口，通过句柄连接 `qemu:///system` 以 root 权限对本地的真实虚拟机进行零命令行原生控制。
+## 3.1 总体架构
+
+　　系统采用前后端分离结构。后端提供统一 REST API。前端可以是 Swing 客户端，也可以是 Web 客户端。两类客户端都不直接访问 libvirt。
+
+　　系统总体部署架构如图3-1所示。
+
+![图3-1 系统总体部署架构](./system_architecture.svg)
+
+图3-1 系统总体部署架构
+
+　　本部署架构体现了多层解耦设计。整个交互链路在垂直方向上从客户端依次穿过控制器层、业务服务层与动态加载代理，最终抵达虚拟化物理底层，保障了任意一层内部实现的演进均不会对其上下游造成破坏性影响。
+
+## 3.2 模块设计
+
+　　项目采用多模块结构：`common` 提供共享 DTO、请求对象与统一响应对象；`backend` 提供 REST API 和业务服务；`client-swing` 与 `client-web` 分别提供桌面端和 Web 端管理界面。
+
+　　系统模块依赖如图3-2所示。该图只展示项目顶层模块之间的依赖关系，后端内部的双模式实现单独展开说明。
+
+![图3-2 项目模块依赖图](./module_structure.svg)
+
+图3-2 项目模块依赖图
+
+　　本依赖关系图突出了核心数据传输实体的共享契约作用。客户端与后端通过对通用模型模块的单向依赖，实现前后端数据结构同步，避免了跨进程通信中数据反序列化的契约冗余。
+
+　　后端内部以 `controller` 接收 REST 请求，以 `service` 定义业务接口，并通过 `service.mock` 和 `service.libvirt` 提供两套实现；`exception` 包负责统一异常响应。
+
+　　后端通过 Spring Profile 将 Windows 开发阶段的模拟数据实现与 CentOS 部署阶段的真实 libvirt 实现隔离，具体结构如图3-3所示。
+
+![图3-3 后端双模式服务结构](./backend_dual_mode.svg)
+
+图3-3 后端双模式服务结构
+
+　　本后端结构揭示了基于面向对象多态特征的动态装配机制。它通过声明统一的服务基类，利用特定的属性配置文件在系统启动阶段选择性地加载实体代理或虚设代理，做到了开发环境与物理部署环境的无缝过渡。
+
+## 3.3 数据对象设计
+
+　　前后端通过 JSON 交换数据。数据对象不直接暴露 libvirt 指针或底层结构，而是通过请求对象、资源 DTO 和统一响应对象完成封装。整体数据交换关系如图3-4所示。
 
 ```mermaid
-graph TD
-    A[网页客户端 Vue 3 / TS] -->|HTTP REST API| B[Spring Boot 后端网关]
-    B -->|@Profile mock| C[内存假数据 MockService]
-    B -->|@Profile libvirt / JNA| D[libvirt C 动态库]
-    D -->|qemu:///system| E[KVM/QEMU 虚机内核]
+%%{init: {"theme": "base"}}%%
+flowchart LR
+    Client["Web / Swing 客户端"]
+    Request["操作请求对象<br/>CreateVmRequest<br/>AddImageRequest<br/>CreateSnapshotRequest"]
+    Api["ApiResponse&lt;T&gt;<br/>统一响应封装"]
+    Response["资源响应对象<br/>Host / VM / Image<br/>Network / Snapshot / Storage"]
+
+    Client -->|提交操作| Request
+    Request -->|后端处理| Api
+    Api -->|data| Response
+    Response -->|JSON 返回| Client
 ```
 
-## 3.2 数据结构设计 (DTO)
-前后端通过强类型的 JSON 对象交互。以下是 common 共享模块中设计的两个最核心的资源传输对象：
+图3-4 前后端数据对象关系
 
-### 表3-1 HostInfoDto 宿主机信息传输对象字段表
+　　本数据关系图展示了网络边界上的实体封装逻辑。系统通过定义统一的通用返回结构、操作请求对象和数据传输对象，将真实的虚拟化句柄及细节安全地隔离在服务层内部，提高了通信协议的抗篡改能力。
 
-| 字段名称 (Field) | 数据类型 (Type) | 映射含义与作用说明 |
-| :--- | :--- | :--- |
-| `hostname` | `String` | 宿主机操作系统主机名 |
-| `cpuModel` | `String` | 物理 CPU 架构与型号（如 x86_64 / EPYC） |
-| `cpuCount` | `int` | 物理 CPU 线程/核心数 |
-| `cpuMHz` | `int` | 物理 CPU 运行主频 |
-| `totalMemoryMb` | `long` | 物理服务器的内存总量 (MB) |
-| `usedMemoryMb` | `long` | 宿主机已使用的内存容量 (MB) |
-| `freeMemoryMb` | `long` | 宿主机当前空闲可支配内存量 (MB) |
-| `memoryUsagePercent` | `int` | 内存占用百分比 (0-100) |
-| `virtualizationType`| `String` | 虚拟化技术类型（KVM） |
-| `libvirtVersion` | `String` | 服务器端宿主 libvirt API 的版本号 |
-| `qemuVersion` | `String` | 物理机运行的 QEMU 模拟器版本 |
-| `connectionUri` | `String` | 后端驱动连接路径句柄（qemu:///system） |
+　　所有接口统一返回 `ApiResponse<T>`：
 
-### 表3-2 VmInfoDto 虚拟机详情传输对象字段表
+```java
+public class ApiResponse<T> {
+    public boolean success;
+    public String message;
+    public T data;
+}
+```
 
-| 字段名称 (Field) | 数据类型 (Type) | 映射含义与作用说明 |
-| :--- | :--- | :--- |
-| `name` | `String` | 虚拟机实例唯一名称 |
-| `uuid` | `String` | 虚拟机唯一识别 UUID (36位字符) |
-| `state` | `String` | 虚机当前状态（映射为中文：运行/关闭/暂停/异常） |
-| `cpuCount` | `int` | 虚拟机分配的虚拟 CPU 核心数 |
-| `memoryMb` | `int` | 虚拟机分配的物理内存大小 (MB) |
-| `diskPath` | `String` | 虚拟机磁盘在宿主机存储池中的物理路径 |
-| `diskSizeGb` | `int` | 虚拟机磁盘的最大可用配额 (GB) |
-| `networkName` | `String` | 虚拟机网卡桥接的虚拟网络名称（如 default） |
-| `autostart` | `boolean` | 是否配置为宿主机开机自动启动虚拟机 |
-| `persistent` | `boolean` | 虚拟机配置是否已持久化定义在系统 XML 中 |
-| `description` | `String` | 虚拟机的备注说明信息 |
+　　宿主机与虚拟机是系统中最核心的两个资源对象，其主要字段关系如下：
+
+```mermaid
+%%{init: {"theme": "base"}}%%
+classDiagram
+    class HostInfoDto {
+        String hostname
+        int cpuCount
+        long totalMemoryMb
+        int memoryUsagePercent
+        String libvirtVersion
+        String qemuVersion
+        String connectionUri
+    }
+
+    class VmInfoDto {
+        String name
+        String uuid
+        String state
+        int cpuCount
+        int memoryMb
+        String diskPath
+        String networkName
+        boolean persistent
+    }
+```
 
 ---
 
 # 4 系统实现
 
-## 4.1 后端 libvirt 生命周期管控的核心实现
-后端 `LibvirtVmService` 通过 JNA 原生调用 libvirt 动态链接库的 `virDomainCreate`、`virDomainShutdown` 等方法实现虚拟机的开机与关机，其关键代码如下所示：
+## 4.1 后端 Profile 隔离
+
+　　后端通过 Spring Profile 区分开发模式和真实模式。mock 模式使用内存数据，不加载 libvirt。libvirt 模式才加载 `/usr/lib64/libvirt.so.0`。
 
 ```java
-// 虚拟机生命周期控制实现
-@Service
+@Component
 @Profile("libvirt")
-public class LibvirtVmService implements VmService {
-    private final LibvirtConnectionManager manager;
+public class LibvirtConnectionManager {
+    private final String uri;
+    private final LibvirtLibrary library;
 
-    public LibvirtVmService(LibvirtConnectionManager manager) {
-        this.manager = manager;
-    }
-
-    // 启动虚拟机实现
-    @Override
-    public void startVm(String name) {
-        withDomain(name, domain -> {
-            check(manager.library().virDomainCreate(domain), "启动虚拟机失败：" + name);
-            return null;
-        });
-    }
-
-    // 发送 ACPI 关机信号
-    @Override
-    public void shutdownVm(String name) {
-        withDomain(name, domain -> {
-            check(manager.library().virDomainShutdown(domain), "发送关机信号失败：" + name);
-            return null;
-        });
-    }
-
-    // 物理强制关闭（断电）
-    @Override
-    public void destroyVm(String name) {
-        withDomain(name, domain -> {
-            check(manager.library().virDomainDestroy(domain), "强制关闭虚拟机失败：" + name);
-            return null;
-        });
-    }
-
-    // 虚拟机操作通用句柄包装，用于安全地打开连接、解析域并注销 C 指针内存防止泄漏
-    private <T> T withDomain(String name, DomainCallback<T> callback) {
-        LibvirtLibrary lib = manager.library();
-        Pointer conn = manager.open();
-        Pointer domain = lib.virDomainLookupByName(conn, name);
-        if (domain == null) {
-            manager.close(conn);
-            throw new BusinessException("虚拟机不存在：" + name);
-        }
-        try {
-            return callback.apply(domain);
-        } finally {
-            lib.virDomainFree(domain); // 释放虚机句柄指针，规避 JNA 内存泄漏
-            manager.close(conn);
-        }
+    public LibvirtConnectionManager(
+            @Value("${kvm.libvirt.uri}") String uri,
+            @Value("${kvm.libvirt.library}") String libraryPath) {
+        this.uri = uri;
+        this.library = Native.load(libraryPath, LibvirtLibrary.class);
     }
 }
 ```
 
-## 4.2 前端安全关机进度轮询与定时器回收实现
-前端在 VmView.vue 中，针对 ACPI 信号无响应和异常退出的场景实现了防抖和优雅的销毁回收逻辑。在弹窗关闭事件中注销全部 Interval 定时器，防范后台请求累积：
+　　该设计避免了 Windows 开发环境加载 Linux 动态库。
+
+## 4.2 libvirt JNA 映射
+
+　　后端使用 JNA 映射 libvirt C API。核心接口包括连接管理、虚拟机管理、网络管理、快照管理和存储管理。
+
+```java
+public interface LibvirtLibrary extends Library {
+    Pointer virConnectOpen(String name);
+    int virConnectClose(Pointer conn);
+    int virConnectListAllDomains(Pointer conn, PointerByReference domains, int flags);
+
+    Pointer virDomainLookupByName(Pointer conn, String name);
+    int virDomainCreate(Pointer domain);
+    int virDomainShutdown(Pointer domain);
+    int virDomainDestroy(Pointer domain);
+    int virDomainSuspend(Pointer domain);
+    int virDomainResume(Pointer domain);
+    int virDomainFree(Pointer domain);
+}
+```
+
+　　系统不调用 `virsh` 命令，所有操作均通过 libvirt API 实现。
+
+## 4.3 虚拟机生命周期实现
+
+　　虚拟机操作集中在 `LibvirtVmService`。服务先打开 libvirt 连接，再根据名称查找 domain，最后调用对应的生命周期函数。
+
+```java
+@Override
+public void startVm(String name) {
+    withDomain(name, domain -> {
+        check(manager.library().virDomainCreate(domain), "启动虚拟机失败：" + name);
+        return null;
+    });
+}
+
+@Override
+public void shutdownVm(String name) {
+    withDomain(name, domain -> {
+        check(manager.library().virDomainShutdown(domain), "关闭虚拟机失败：" + name);
+        return null;
+    });
+}
+
+@Override
+public void destroyVm(String name) {
+    withDomain(name, domain -> {
+        check(manager.library().virDomainDestroy(domain), "强制关闭虚拟机失败：" + name);
+        return null;
+    });
+}
+```
+
+　　`shutdownVm` 发送关机信号。若虚拟机内部系统未响应，前端将进行状态轮询，并在超时后提示用户可选择强制断电。
+
+## 4.4 Web 客户端实现
+
+　　Web 客户端位于 `client-web`。前端使用 Vue 3、TypeScript、Element Plus、Pinia、Vue Router、Axios 和 ECharts。页面通过 Axios 调用后端 `/api` 接口。
+
+　　前端主要页面围绕宿主机、虚拟机、镜像、网络、快照和存储资源组织，页面结构如下：
+
+```mermaid
+%%{init: {"theme": "base"}}%%
+flowchart TB
+    Web["Web 客户端"]
+
+    subgraph Overview["监控视图"]
+        Dashboard["Dashboard<br/>资源看板"]
+        Host["Host<br/>宿主机详情"]
+    end
+
+    subgraph Manage["资源管理"]
+        VM["VM<br/>生命周期操作"]
+        Images["Images<br/>镜像管理"]
+        Networks["Networks<br/>网络启停"]
+    end
+
+    subgraph Data["数据与保护"]
+        Storage["Storage<br/>存储池与卷"]
+        Snapshots["Snapshots<br/>快照管理"]
+    end
+
+    Web --> Overview
+    Web --> Manage
+    Web --> Data
+```
+
+　　通过 Axios 拦截器处理接口响应。若接口返回失败，前端将进行错误提示并记录操作日志。
+
+## 4.5 关机轮询与超时处理
+
+　　虚拟机关机操作控制流如图4-1所示。
+
+```mermaid
+%%{init: {"theme": "base"}}%%
+flowchart TB
+    Start(["点击关机"])
+    Confirm{"确认关机?"}
+    Shutdown["后端发送 ACPI 信号<br/>virDomainShutdown"]
+    Poll["前端轮询状态<br/>1.5 秒 / 次"]
+    Closed{"状态为关闭?"}
+    Timeout{"超过 15 次?"}
+    Force["提示强制断电"]
+    Destroy["执行 virDomainDestroy"]
+    Success(["刷新列表并记录日志"])
+    Cancel(["取消操作"])
+
+    Start --> Confirm
+    Confirm -- 否 --> Cancel
+    Confirm -- 是 --> Shutdown
+    Shutdown --> Poll
+    Poll --> Closed
+    Closed -- 是 --> Success
+    Closed -- 否 --> Timeout
+    Timeout -- 否 --> Poll
+    Timeout -- 是 --> Force
+    Force --> Destroy
+    Destroy --> Success
+```
+
+图4-1 虚拟机关机轮询与超时处理流程
+
+　　本流程图描述了非阻塞的异步状态回收算法设计。前台通过定时器进行间隔查询以替换传统的后端长连接轮询，这不仅释放了后台处理线程，也通过前台超时判定提供了更加灵活的人机交互选择。
+
+　　Web 前端在执行关机操作后，不直接认为虚拟机已经关闭，而是继续查询虚拟机状态。若状态变为“关闭”，则刷新列表。若超过等待次数仍未关闭，则显示强制关闭按钮。
 
 ```typescript
-let activePollInterval: any = null;
-let activeProgressInterval: any = null;
-
-// 关闭窗口事件：彻底注销并回收定时器，防范后台请求累积
-const handleShutdownDialogClosed = () => {
-  if (activePollInterval) {
-    clearInterval(activePollInterval);
-    activePollInterval = null;
-  }
-  if (activeProgressInterval) {
-    clearInterval(activeProgressInterval);
-    activeProgressInterval = null;
-  }
-};
-
-// 启动安全关机进度指示与状态轮询
 const startShutdownPoll = (name: string) => {
-  handleShutdownDialogClosed(); // 开启前重置，防止旧定时器重叠
+  let pollCount = 0
+  const maxPoll = 15
 
-  shutdownVmName.value = name;
-  shutdownProgress.value = 10;
-  shutdownStatusText.value = '已向系统发送关机信号，正在等待虚拟机关闭...';
-  shutdownProgressStatus.value = '';
-  showForceShutdownBtn.value = false;
-  shutdownDialogVisible.value = true;
-
-  logStore.addLog('info', `关闭虚拟机 ${name}`, '正在等待虚拟机安全关机...');
-
-  let pollCount = 0;
-  const maxPoll = 15; // 轮询上限 15 次
-
-  // 进度条平滑自增动画，最大在关闭成功前仅逼近 90%
-  activeProgressInterval = setInterval(() => {
-    if (shutdownProgress.value < 90) {
-      shutdownProgress.value = Math.min(
-        90,
-        Math.round(shutdownProgress.value + (90 - shutdownProgress.value) * 0.15)
-      );
-    }
-  }, 1000);
-
-  // 定时向后端拉取虚机真实状态进行验证
   activePollInterval = setInterval(async () => {
-    pollCount++;
-    try {
-      const detail = await getVmDetail(name);
-      if (detail.state === '关闭') {
-        handleShutdownDialogClosed(); // 停止轮询
+    pollCount++
+    const detail = await getVmDetail(name)
 
-        shutdownProgress.value = 100;
-        shutdownProgressStatus.value = 'success';
-        shutdownStatusText.value = '虚拟机已成功安全关闭';
-        logStore.addLog('success', `关闭虚拟机 ${name}`, '虚拟机已成功安全关机');
-
-        setTimeout(() => {
-          shutdownDialogVisible.value = false;
-          fetchData(); // 刷新表格数据
-        }, 1200);
-      } else if (pollCount >= maxPoll) {
-        handleShutdownDialogClosed(); // 达到上限停止轮询
-
-        shutdownProgressStatus.value = 'exception';
-        shutdownStatusText.value = '虚拟机未能在规定时间内响应关机信号。这可能是因为虚拟机内部系统未运行或未安装 ACPI 关机支持。你可以关闭本窗口，或执行强制断电。';
-        showForceShutdownBtn.value = true;
-        logStore.addLog('error', `关闭虚拟机 ${name}`, '虚拟机关机等待超时');
-      }
-    } catch (error) {
-      console.error('轮询虚拟机状态发生异常', error);
+    if (detail.state === '关闭') {
+      clearShutdownTimer()
+      shutdownProgress.value = 100
+      shutdownStatusText.value = '虚拟机已关闭'
+      await fetchData()
+    } else if (pollCount >= maxPoll) {
+      clearShutdownTimer()
+      shutdownProgressStatus.value = 'exception'
+      shutdownStatusText.value = '虚拟机未在规定时间内关闭，可执行强制关闭'
+      showForceShutdownBtn.value = true
     }
-  }, 1500);
-};
+  }, 1500)
+}
 ```
+
+　　该逻辑能够反映虚拟机的实际运行状态。
 
 ---
 
 # 5 系统测试与验证
 
-## 5.1 本地静态编译测试
-系统对前端静态页面执行了严格的 TypeScript 语法与编译规范校验。在 [client-web](file:///D:/Code/Other/kvm/client-web) 目录下执行：
+## 5.1 本地构建测试
+
+　　后端在 Windows 本地使用 JDK 21 构建：
+
 ```bash
-powershell -ExecutionPolicy Bypass -Command "npm run build"
+mvn clean package -DskipTests
 ```
-系统构建提示 `built in 1.25s` 并顺利输出了前端的打包资源，表明前端对于 Pinia 的 `useLogStore` 以及 `getVmDetail` 的类型和函数参数引用均完全合规。
 
-## 2.2 CentOS 上接口功能性黑盒测试
-在 CentOS 真实后端拉起后，我们在物理机本地通过 `curl` 针对核心资源获取接口进行黑盒调用：
+　　Web 前端在 `client-web` 目录下构建：
 
-### 5.2.1 宿主机监控参数接口测试
+```bash
+npm run build
+```
+
+　　构建通过后，前端资源输出到 `client-web/dist`。
+
+> **虚拟机截图指引**：在开发环境中运行后端 Maven 编译打包命令以及前端 npm 构建命令，并截取终端显示构建成功的最终界面，命名为 `image_project_build.png` 存放在 `报告模板v5_media/media/` 目录下。
+
+![图5-1 前后端项目构建成功控制台截图](报告模板v5_media/media/image_project_build.png)
+
+## 5.2 mock 模式测试
+
+　　Windows 开发阶段启动后端：
+
+```bash
+java -jar backend/target/kvm-cloud-backend.jar --spring.profiles.active=mock
+```
+
+　　Web 前端通过 Vite 代理访问 `/api`。在 mock 模式下，宿主机信息、虚拟机列表、镜像列表、网络列表、快照列表和存储信息均可展示。虚拟机启动、关机、暂停、恢复等操作会修改内存中的状态。
+
+　　运行前端页面的启动代码：
+```bash
+cd client-web
+npm run dev
+```
+
+> **虚拟机截图指引**：在启动后端 mock 模式与前端 Vite 开发服务器后，在浏览器打开资源看板页面并进行完整截图，命名为 `image_mock_dashboard.png` 存放在 `报告模板v5_media/media/` 目录下。
+
+![图5-2 开发环境前端主控资源看板运行截图](报告模板v5_media/media/image_mock_dashboard.png)
+
+## 5.3 libvirt 模式接口测试
+
+　　CentOS 上启动真实后端：
+
+```bash
+java -jar kvm-cloud-backend.jar \
+  --spring.profiles.active=libvirt \
+  --server.address=0.0.0.0 \
+  --server.port=8080
+```
+
+　　宿主机信息接口测试：
+
 ```bash
 curl -s http://127.0.0.1:8080/api/host/info
 ```
-*   **返回数据**：
-    `{"success":true,"message":"操作成功","data":{"hostname":"centos","cpuModel":"x86_64","cpuCount":4,"cpuMHz":3593,"totalMemoryMb":7647,"usedMemoryMb":2327,"freeMemoryMb":5320,"memoryUsagePercent":30,"virtualizationType":"KVM","libvirtVersion":"11.10.0","qemuVersion":"10.1.0","kvmEnabled":true,"connectionUri":"qemu:///system"}}`
-*   **结论**：硬件主频、核心数获取精度为 100%，内存利用率解析符合系统预期。
 
-### 5.2.2 存储卷列表接口测试
+　　接口可返回主机名、CPU、内存、libvirt 版本、QEMU 版本和连接 URI。
+
+　　存储卷接口测试：
+
 ```bash
 curl -s http://127.0.0.1:8080/api/storage/pools/default/volumes
 ```
-*   **返回数据**：
-    `{"success":true,"message":"操作成功","data":[{"name":"CorePure64-15.0.iso","path":"/var/lib/libvirt/images/CorePure64-15.0.iso","type":"file","capacityGb":0.0,"allocationGb":0.0},{"name":"cirros-0.5.2-x86_64-disk.img","path":"/var/lib/libvirt/images/cirros-0.5.2-x86_64-disk.img","type":"file","capacityGb":0.1,"allocationGb":0.0},{"name":"ubuntu16.04.7.img","path":"/var/lib/libvirt/images/ubuntu16.04.7.img","type":"file","capacityGb":10.0,"allocationGb":5.4}]}`
-*   **结论**：存储卷名称、分配空间、文件物理格式获取精准。
 
-## 5.3 虚拟机正常关机与异常断电流程测试结果
-在前端网页控制台上对虚拟机进行操作：
-1.  **控制台日志输出详情**：当点击“启动”时，控制台操作面板依次呈现：
-    *   `[启动虚拟机 demo] 正在向系统发送启动信号...`
-    *   `[启动虚拟机 demo] 正在发送请求`
-    *   `[启动虚拟机 demo] 操作成功`
-    *   `[启动虚拟机 demo] 启动指令已下发，正在验证虚拟机运行状态...`
-    *   `[启动虚拟机 demo] 虚拟机状态已成功转为 [运行中]`
-2.  **ACPI 超时降级演练**：对极微型虚拟机 `tinycore-test` 发起关机。由于其无内部 ACPI 响应服务，进度条于 22.5 秒后变红并发出 `虚拟机关机等待超时` 日志。点击弹窗下方的“强制断电”按钮，控制台立刻反馈 `[强制关机虚拟机 tinycore-test] 强制关闭成功`。在宿主机上查询状态，虚拟机已被成功销毁（`virDomainDestroy`），功能验证完美通过。
+　　接口可返回存储卷名称、路径、类型、容量和已分配空间。
 
-![图5-1 平台主控看板运行截图](报告模板v5_media/media/image_placeholder.png)
-*(图5-1 平台主控看板运行截图)*
+　　网络接口测试：
 
-![图5-2 虚拟机生命周期控制与控制台日志记录截图](报告模板v5_media/media/image_placeholder.png)
-*(图5-2 虚拟机生命周期与日志截图)*
+```bash
+curl -s http://127.0.0.1:8080/api/networks
+```
+
+　　接口可返回 `default` 网络的状态、网桥、转发模式和 DHCP 范围。
+
+> **虚拟机截图指引**：在 CentOS 运行真实部署后端后，在 Windows 或本地使用 `curl` 调试工具运行上述 5.3 节的任一数据获取命令，并截取返回的 JSON 数据内容，命名为 `image_curl_host_info.png` 存放在 `报告模板v5_media/media/` 目录下。
+
+![图5-3 宿主机接口 curl 返回数据截图](报告模板v5_media/media/image_curl_host_info.png)
+
+## 5.4 虚拟机生命周期测试
+
+　　对虚拟机执行启动、暂停、恢复、关机和强制关闭操作。测试中，启动、暂停、恢复和强制关闭均能改变虚拟机状态。
+
+　　正常关机依赖虚拟机内部系统响应 ACPI 信号。部分轻量虚拟机没有相关服务，可能不会在指定时间内关机。前端在超时后提示用户执行强制关闭。强制关闭通过调用 `virDomainDestroy` 释放虚拟机运行资源。
+
+> **虚拟机截图指引**：在前端执行关机测试，等待 15 次轮询超时并观察到界面弹出“强制断电”红色异常警告框时，截取该异常控制页面，命名为 `image_vm_lifecycle_poll.png` 存放在 `报告模板v5_media/media/` 目录下。
+
+![图5-4 虚拟机安全关机超时轮询控制截图](报告模板v5_media/media/image_vm_lifecycle_poll.png)
+
+## 5.5 快照测试
+
+　　虚拟机 `demo` 使用 raw 磁盘格式。由于底层存储限制，不支持创建快照，调用相关接口将返回格式不支持的错误。
+
+　　在配置了 qcow2 磁盘格式的测试虚拟机上，快照的创建、查询、恢复与删除操作均已通过接口调用验证，表明后端快照功能已成功接入 libvirt，其实际可用性受磁盘格式限制。
+
+> **虚拟机截图指引**：在浏览器打开前端管理页面的“存储管理”及“快照管理”面板，分别执行查询或模拟操作后进行截图，分别命名为 `image_storage_management.png` 和 `image_snapshot_management.png` 存放在 `报告模板v5_media/media/` 目录下。
+
+![图5-5 虚拟机存储池与卷管理界面截图](报告模板v5_media/media/image_storage_management.png)
+
+![图5-6 虚拟机快照版本管理界面截图](报告模板v5_media/media/image_snapshot_management.png)
 
 ---
 
 # 6 小组分工
 
-本课程设计由小组协作开发完成，具体职责分工如下：
+　　本课程设计由小组协作完成，分工如下：
 
-*   **成员 A（学号：XXXXXX）**：负责底层 libvirt API 的 JNA 库映射设计与后端 REST 网关搭建，实现双 Profile 编译配置及 CentOS 服务器端 hosts 解析与 QEMU 能力检测环境系统级调优与服务重启。
-*   **成员 B（学号：XXXXXX）**：负责基于 Vue 3 + TypeScript 网页客户端的编写与 FlatLaf 桌面 Swing 端的开发，完成控制台日志追踪面板、关机进度轮询及超时强制断电防抖交互机制的设计与实现。
+```mermaid
+%%{init: {"theme": "base"}}%%
+flowchart TB
+    Team["课程设计小组"]
+
+    subgraph BackendWork["成员 A：后端与环境"]
+        A1["项目总体结构"]
+        A2["REST API 与统一响应"]
+        A3["mock / libvirt 双模式"]
+        A4["JNA 函数映射"]
+        A5["CentOS 部署与接口测试"]
+        A6["故障排查与性能验证"]
+    end
+
+    subgraph FrontDocWork["成员 B：前端与文档"]
+        B1["Web 页面与接口封装"]
+        B2["操作日志与关机轮询"]
+        B3["图表展示与页面联调"]
+        B4["测试记录整理"]
+        B5["截图收集与报告排版"]
+    end
+
+    Team --> BackendWork
+    Team --> FrontDocWork
+```
+
+图6-1 课程设计小组成员分工图
+
+　　分工图明确划分了后端开发部署与前端交互设计的双轨并行职责，在保障后端业务逻辑强内聚的同时，亦保证了前端状态管理与时序逻辑的独立开发。
+
+　　课程设计实施进度如下：
+
+```mermaid
+%%{init: {"theme": "base"}}%%
+gantt
+    title 课程设计实施进度
+    dateFormat  YYYY-MM-DD
+    axisFormat  %m-%d
+
+    section 成员 A
+    后端接口设计       :a1, 2026-06-01, 3d
+    双模式实现         :a2, after a1, 4d
+    JNA 与部署         :a3, after a2, 4d
+    接口排查           :a4, after a3, 3d
+
+    section 成员 B
+    页面与接口         :b1, 2026-06-03, 5d
+    日志与轮询         :b2, after b1, 3d
+    图表与联调         :b3, after b2, 3d
+    测试与报告         :b4, after b3, 4d
+```
+
+图6-2 课程设计实施进度甘特图
+
+　　实施进度甘特图刻画了小组成员开发任务的里程碑节点。通过紧凑的开发排期与联调交汇点，项目得以按时保质完成。
+
+---
+
+# 7 部署中遇到的问题
+
+## 7.1 主机名解析导致启动延迟
+
+　　测试中发现，虚拟机启动接口存在延迟。排查后发现，系统主机名为 `centos`，但 `/etc/hosts` 中没有本地解析记录。libvirt 调用主机名相关接口时会等待 DNS 查询，导致接口响应延迟。
+
+　　处理方式是在 `/etc/hosts` 中加入：
+
+```text
+127.0.0.1 centos
+::1 centos
+```
+
+　　修改后，主机名解析不再依赖外部 DNS，接口响应时间降低。
+
+## 7.2 旧版 QEMU 程序影响版本检测
+
+　　后端调用 `virConnectGetVersion` 时曾返回失败，页面显示 QEMU 版本未知。检查日志后发现，系统中存在旧版 `/usr/local/bin/qemu-system-x86_64`。libvirt 能力检测时扫描到该程序，影响了版本判断。
+
+　　处理方式是屏蔽旧程序，并重启 `virtqemud`：
+
+```bash
+mv /usr/local/bin/qemu-system-x86_64 /usr/local/bin/qemu-system-x86_64.bak
+systemctl restart virtqemud
+```
+
+　　处理后，后端可以正确显示 QEMU 10.1.0。
+
+---
+
+# 8 总结
+
+　　本系统实现了一个基于 KVM 和 libvirt 的云平台管理系统。后端通过 Spring Profile 支持 mock 模式和 libvirt 模式。模拟配置用于 Windows 环境下的开发调试，libvirt 配置用于 CentOS 环境的部署运行。前端通过 HTTP 调用后端接口，避免直接依赖虚拟化底层库。
+
+　　通过本次课程设计，设计并实现了虚拟机生命周期管理、宿主机监控、网络、存储及快照等功能。测试结果表明，系统能够在模拟环境下运行，并可在 CentOS 环境中管理真实 KVM 虚拟机。后续可以继续完善权限管理、批量操作和更细粒度的资源监控。

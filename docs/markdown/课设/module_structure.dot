@@ -1,0 +1,21 @@
+digraph module_structure {
+    graph [bgcolor="white", rankdir=LR, ranksep=0.75, nodesep=0.5,
+           fontname="Segoe UI,Arial,Microsoft YaHei,sans-serif", fontsize=14,
+           label="项目模块依赖图", labelloc=t];
+    node [shape=box, style="filled,rounded", fillcolor="#F8FAFC", color="#CBD5E1", fontcolor="#1E293B",
+          fontname="Segoe UI,Arial,Microsoft YaHei,sans-serif", fontsize=11, penwidth=1.5,
+          margin="0.16,0.09"];
+    edge [fontname="Segoe UI,Arial,Microsoft YaHei,sans-serif", fontsize=10, color="#64748B", penwidth=1.4,
+          arrowsize=0.75];
+
+    common [label="common\n共享 DTO / 请求 / 响应", fillcolor="#EFF6FF", color="#3B82F6", fontcolor="#1E3A8A"];
+    backend [label="backend\nREST API 与业务服务", fillcolor="#FEF3C7", color="#F59E0B", fontcolor="#78350F"];
+    swing [label="client-swing\n桌面客户端"];
+    web [label="client-web\nWeb 客户端"];
+
+    swing -> backend [label="HTTP"];
+    web -> backend [label="HTTP"];
+    backend -> common [label="引用模型"];
+    swing -> common [label="复用模型"];
+    web -> common [label="类型对齐", style=dashed];
+}

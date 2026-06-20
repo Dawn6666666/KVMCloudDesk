@@ -1,17 +1,26 @@
 # KVM 云平台管理系统
 
-基于 Java 21、Spring Boot、Swing 和后续 Web 前端的 KVM 云平台管理系统。项目采用客户端/服务端架构，Windows 开发阶段使用 `mock` profile 跑通完整链路，CentOS 部署阶段再切换到 `libvirt` profile。
+基于 Java 21、Spring Boot、Swing 和 Vue 3 Web 前端的 KVM 云平台管理系统。项目采用 C/S 架构，后端通过 REST API 提供服务，Windows 开发阶段使用 `mock` 配置测试链路，CentOS 部署阶段切换到 `libvirt` 配置以接入 KVM 虚拟化环境。
+
+## 技术栈
+
+| 模块 | 技术 |
+| :--- | :--- |
+| `common` | Java 21、Jackson 2.17.2 |
+| `backend` | Spring Boot 3.3.6、JNA 5.14.0、libvirt C API |
+| `client-swing` | Java 21 Swing、FlatLaf 3.5.4、MigLayout 11.4.2、Java HttpClient |
+| `client-web` | Vue 3.5、TypeScript 6.0、Vite 8.0、Element Plus 2.14、Pinia 3.0、ECharts 6.1、Axios 1.18 |
 
 ## 模块说明
 
-- `common`：DTO、请求对象、统一响应对象。
-- `backend`：Spring Boot REST API，支持 `mock` / `libvirt` profile。
-- `client-swing`：Swing 桌面客户端，使用 FlatLaf、MigLayout、Java HttpClient。
-- `client-web`：基于 Vue 3 + Vite + TypeScript + Element Plus + Pinia + ECharts 的 Web 客户端，复用现有 Spring Boot REST API，不直接依赖 libvirt。
+- `common`：DTO、请求对象与统一响应对象 `ApiResponse<T>`。
+- `backend`：Spring Boot REST API，支持 `mock` 与 `libvirt` 双配置模式。libvirt 模式下通过 JNA 映射约 57 个 libvirt C 函数与 4 个 JNA 结构体，不依赖 virsh。
+- `client-swing`：Swing 桌面客户端，使用 FlatLaf 明暗主题切换、MigLayout 布局与 SwingWorker 异步调用。
+- `client-web`：基于 Vue 3、TypeScript、Element Plus、Pinia 与 ECharts 的 Web 客户端，主色调为 `#ca6a1f`，提供控制面板图表、全局操作日志追踪面板与关机轮询进度指示。
 
 ## Web 客户端运行与开发
 
-Web 客户端已全部开发完成，提供宿主机参数展示、虚拟机全状态生命周期管理、快照回滚拍摄、桥接网络管理、存储卷明细查看及 ECharts 仪表盘等功能。
+Web 客户端提供宿主机参数展示、虚拟机生命周期管理、快照创建与回滚、桥接网络管理、存储卷查看及 ECharts 仪表盘等功能。
 
 ### 运行开发服务器
 
@@ -25,6 +34,8 @@ npm run dev
 ```
 
 3. 启动后通过浏览器访问命令行输出的调试地址（默认为 `http://localhost:5173`）即可。
+
+> **注意**：`vite.config.ts` 中 `/api` 代理默认指向 CentOS 远程后端 `http://192.168.61.130:8080`。若要在本地 mock 模式下开发，需将 `target` 改为 `http://127.0.0.1:8080`。
 
 ### 生产编译打包
 
@@ -70,25 +81,25 @@ java -jar kvm-cloud-backend.jar \
   --server.port=8080
 ```
 
-当前 `libvirt` profile 已实现完整真实链路：
+当前 `libvirt` 配置已接入真实虚拟化环境：
 
-- 连接宿主机（已通过 CentOS 本地回环 `/etc/hosts` 彻底优化获取宿主机名逻辑，解决了 DNS 超时，将操作与启动延迟缩短至 0.15 秒内）
-- 获取宿主机信息（已排除残留不合规 QEMU 程序的干扰，能自动精准识别并呈现 QEMU 10.1.0 版本）
-- 虚拟机创建与定义（支持基于已部署的系统镜像或光盘进行创建）
-- 虚拟机删除（支持清除定义并同步物理删除磁盘映像文件）
-- 列出真实虚拟机及状态展示
-- 获取虚拟机详情
-- 启动虚拟机（网页端集成了步骤级日志与过渡防抖）
-- 请求虚拟机关机（网页端集成了精致的关闭进度条指示、异步关机状态轮询以及超时降级机制）
-- 强制关闭虚拟机（支持在关机超时或故障时，在弹窗中一键强制断电）
-- 暂停与恢复虚拟机（网页端均对齐了详细日志与中间状态审计记录）
-- 查询虚拟网络列表与状态切换（启动/停止网络）
-- 查询存储池与存储卷列表
-- 快照全生命周期管理（创建快照、快照列表查询、恢复回滚、彻底删除）
+- 连接宿主机：配置 CentOS 本地回环 `/etc/hosts`，降低获取宿主机名时的域名解析延迟，使操作延迟维持在 0.15 秒内。
+- 获取宿主机信息：排除多余 QEMU 程序的干扰，能够读取 QEMU 10.1.0 版本信息。
+- 虚拟机创建与定义：支持基于已有系统镜像或光盘创建虚拟机。
+- 虚拟机删除：支持清除定义并同步删除磁盘映像文件。
+- 获取虚拟机列表与状态。
+- 获取虚拟机详情。
+- 启动虚拟机：Web 端提供步骤日志与防抖处理。
+- 关闭虚拟机：Web 端包含进度指示、状态轮询与超时降级机制。
+- 强制关闭虚拟机：支持在关机超时或异常时，在弹窗中选择强制断电。
+- 暂停与恢复虚拟机：Web 端包含操作日志与状态记录。
+- 查询虚拟网络列表与状态切换：支持启动和停止网络。
+- 查询存储池与存储卷列表。
+- 快照生命周期管理：支持快照创建、列表查询、恢复与删除。
 
-说明：`shutdown` 是向 guest 发送正常关机请求（ACPI 信号），真实虚拟机可能因为系统状态或内部无相关服务而没有立即关机；若长时间无响应将触发网页端超时，此时在弹窗中一键执行“强制断电”即可立即断开电源。
+说明：关闭虚拟机操作是向虚拟机发送正常关机信号（ACPI），若虚拟机内部系统未运行相关服务，可能无法立即关闭。若超时无响应，可在弹窗中选择强制断电以断开电源。
 
-快照说明：对于使用 raw 磁盘格式的默认虚拟机（例如 demo），由于底层存储驱动限制无法支持内部快照，相关快照接口会返回格式不支持的业务错误。目前已在 CentOS 环境中通过新增部署 qcow2 磁盘格式的测试虚拟机（例如 cirros-test-052），成功验证了快照创建、列表查询、恢复回滚以及删除的全部生命周期。
+快照说明：使用 raw 磁盘格式的虚拟机受底层存储驱动限制，不支持创建快照，调用接口会返回格式不支持的错误。目前已在 CentOS 环境中新增部署 qcow2 磁盘格式的测试虚拟机，验证了快照的创建、查询、恢复与删除操作。
 
 ## API 列表
 
@@ -124,5 +135,5 @@ java -jar kvm-cloud-backend.jar \
 - Windows 上请使用 `mock` profile，不要启动 `libvirt` profile。
 - Windows 本地不需要安装 libvirt，也不会加载 `/usr/lib64/libvirt.so.0`。
 - Swing 客户端只通过 HTTP JSON 访问后端，不直接依赖 libvirt。
-- 虚拟机点击“关机”后界面长时间无反应，或提示“关机超时”怎么办？
-  安全关机（正常关机）在底层向虚机内系统发送的是 ACPI 关机信号。若虚机内没有响应或系统不支持，将无法自动关机并在 22.5 秒后触发前台超时提示。此时你可以直接在前端进度弹窗中点击“强制断电”（对应后端的 destroy 销毁电源接口），即可对虚机进行强行关机操作。
+- 虚拟机点击“关机”后界面长时间无反应，或提示“关机超时”的解决方法？
+  安全关机操作在底层向虚拟机内系统发送的是 ACPI 关机信号。若虚拟机内没有响应或系统不支持，将无法自动关机并在 22.5 秒后触发超时提示。此时可在前端进度弹窗中选择强制断电（对应后端的销毁接口），即可对虚拟机进行强行关机。

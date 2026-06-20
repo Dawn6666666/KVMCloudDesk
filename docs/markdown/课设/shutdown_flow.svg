@@ -1,0 +1,157 @@
+<svg width="980" height="840" viewBox="0 0 980 840" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <linearGradient id="d11-g-act" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#f8fafc"/>
+        </linearGradient>
+        <linearGradient id="d11-g-exec" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#eff6ff"/><stop offset="100%" stop-color="#dbeafe"/>
+        </linearGradient>
+        <linearGradient id="d11-g-judge" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#fffbeb"/><stop offset="100%" stop-color="#fef3c7"/>
+        </linearGradient>
+        <linearGradient id="d11-g-loop" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#ecfdf5"/><stop offset="100%" stop-color="#d1fae5"/>
+        </linearGradient>
+        <linearGradient id="d11-g-danger" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#fef2f2"/><stop offset="100%" stop-color="#fee2e2"/>
+        </linearGradient>
+        <linearGradient id="d11-g-success" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#f0fdf4"/><stop offset="100%" stop-color="#dcfce7"/>
+        </linearGradient>
+        <filter id="d11-sh" x="-8%" y="-8%" width="116%" height="116%">
+            <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#0f172a" flood-opacity="0.04"/>
+        </filter>
+        <marker id="d11-arr-slate" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L0,6 L7,3 z" fill="#64748b"/>
+        </marker>
+        <marker id="d11-arr-green" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L0,6 L7,3 z" fill="#16a34a"/>
+        </marker>
+        <marker id="d11-arr-red" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L0,6 L7,3 z" fill="#ef4444"/>
+        </marker>
+        <marker id="d11-arr-red-dark" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L0,6 L7,3 z" fill="#b91c1c"/>
+        </marker>
+    </defs>
+    <rect width="980" height="840" fill="#ffffff" />
+    <text x="480" y="30" text-anchor="middle" fill="#0f172a" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="18" font-weight="800">虚拟机安全关机轮询与超时降级逻辑流程图</text>
+    
+    <path d="M 450 80 L 450 120" stroke="#64748b" stroke-width="1.5" marker-end="url(#d11-arr-slate)"/>
+    <path d="M 525 145 L 610 145" stroke="#64748b" stroke-width="1.5" marker-end="url(#d11-arr-slate)"/>
+    
+    <g transform="translate(565, 145)">
+        <rect x="-15" y="-9" width="30" height="18" rx="9" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="0" y="4" text-anchor="middle" fill="#64748b" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="600">否</text>
+    </g>
+    
+    <path d="M 450 170 L 450 210" stroke="#2563eb" stroke-width="1.5" marker-end="url(#d11-arr-slate)"/>
+    <g transform="translate(450, 190)">
+        <rect x="-15" y="-9" width="30" height="18" rx="9" fill="#ffffff" stroke="#bfdbfe" stroke-width="1"/>
+        <text x="0" y="4" text-anchor="middle" fill="#2563eb" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="600">是</text>
+    </g>
+    
+    <path d="M 450 260 L 450 290" stroke="#64748b" stroke-width="1.5" marker-end="url(#d11-arr-slate)"/>
+    <path d="M 450 340 L 450 360" stroke="#64748b" stroke-width="1.5" marker-end="url(#d11-arr-slate)"/>
+    <path d="M 395 385 L 260 385" stroke="#16a34a" stroke-width="1.5" marker-end="url(#d11-arr-green)"/>
+    
+    <g transform="translate(320, 385)">
+        <rect x="-15" y="-9" width="30" height="18" rx="9" fill="#ffffff" stroke="#bbf7d0" stroke-width="1"/>
+        <text x="0" y="4" text-anchor="middle" fill="#15803d" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="600">是</text>
+    </g>
+    
+    <path d="M 450 410 L 450 440" stroke="#64748b" stroke-width="1.5" marker-end="url(#d11-arr-slate)"/>
+    <g transform="translate(450, 425)">
+        <rect x="-15" y="-9" width="30" height="18" rx="9" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="0" y="4" text-anchor="middle" fill="#64748b" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="600">否</text>
+    </g>
+    
+    <path d="M 505 465 L 590 465" stroke="#64748b" stroke-width="1.5" marker-end="url(#d11-arr-slate)"/>
+    <g transform="translate(545, 465)">
+        <rect x="-15" y="-9" width="30" height="18" rx="9" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="0" y="4" text-anchor="middle" fill="#64748b" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="600">否</text>
+    </g>
+    
+    <path d="M 640 445 L 640 315 L 570 315" stroke="#10b981" stroke-width="1.5" fill="none" marker-end="url(#d11-arr-green)"/>
+    <path d="M 450 490 L 450 520" stroke="#ef4444" stroke-width="1.5" marker-end="url(#d11-arr-red)"/>
+    
+    <g transform="translate(450, 505)">
+        <rect x="-15" y="-9" width="30" height="18" rx="9" fill="#ffffff" stroke="#fca5a5" stroke-width="1"/>
+        <text x="0" y="4" text-anchor="middle" fill="#b91c1c" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="600">是</text>
+    </g>
+    
+    <path d="M 450 570 L 450 600" stroke="#64748b" stroke-width="1.5" marker-end="url(#d11-arr-slate)"/>
+    <path d="M 505 625 L 610 625" stroke="#64748b" stroke-width="1.5" marker-end="url(#d11-arr-slate)"/>
+    
+    <g transform="translate(565, 625)">
+        <rect x="-15" y="-9" width="30" height="18" rx="9" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="0" y="4" text-anchor="middle" fill="#64748b" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="600">否</text>
+    </g>
+    
+    <path d="M 450 650 L 450 690" stroke="#dc2626" stroke-width="1.5" marker-end="url(#d11-arr-red-dark)"/>
+    <g transform="translate(450, 670)">
+        <rect x="-15" y="-9" width="30" height="18" rx="9" fill="#ffffff" stroke="#fca5a5" stroke-width="1"/>
+        <text x="0" y="4" text-anchor="middle" fill="#b91c1c" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="600">是</text>
+    </g>
+    
+    <path d="M 450 740 L 450 770" stroke="#16a34a" stroke-width="1.5" marker-end="url(#d11-arr-green)"/>
+    <path d="M 180 410 L 180 790 L 350 790" stroke="#16a34a" stroke-width="1.5" fill="none" marker-end="url(#d11-arr-green)"/>
+
+    <!-- Nodes -->
+    <g transform="translate(370, 40)" filter="url(#d11-sh)">
+        <rect width="160" height="40" rx="8" fill="url(#d11-g-act)" stroke="#cbd5e1" stroke-width="1.5"/>
+        <text x="80" y="24" text-anchor="middle" fill="#1e293b" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700">点击关机</text>
+    </g>
+    <g transform="translate(375, 120)">
+        <polygon points="75,0 150,25 75,50 0,25" fill="url(#d11-g-judge)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="75" y="29" text-anchor="middle" fill="#78350f" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700">确认关机?</text>
+    </g>
+    <g transform="translate(610, 125)" filter="url(#d11-sh)">
+        <rect width="120" height="40" rx="8" fill="url(#d11-g-act)" stroke="#cbd5e1" stroke-width="1.2"/>
+        <text x="60" y="24" text-anchor="middle" fill="#64748b" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700">取消操作</text>
+    </g>
+    <g transform="translate(330, 210)" filter="url(#d11-sh)">
+        <rect width="240" height="50" rx="8" fill="url(#d11-g-exec)" stroke="#3b82f6" stroke-width="1.5"/>
+        <text x="120" y="29" text-anchor="middle" fill="#1e3a8a" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700">发送安全关机信号</text>
+    </g>
+    <g transform="translate(330, 290)" filter="url(#d11-sh)">
+        <rect width="240" height="50" rx="8" fill="url(#d11-g-loop)" stroke="#10b981" stroke-width="1.5"/>
+        <text x="120" y="29" text-anchor="middle" fill="#064e3b" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700">轮询虚拟机状态</text>
+    </g>
+    <g transform="translate(395, 360)">
+        <polygon points="55,0 110,25 55,50 0,25" fill="url(#d11-g-judge)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="55" y="29" text-anchor="middle" fill="#78350f" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700">已关闭?</text>
+    </g>
+    <g transform="translate(100, 365)" filter="url(#d11-sh)">
+        <rect width="160" height="45" rx="8" fill="url(#d11-g-success)" stroke="#22c55e" stroke-width="1.5"/>
+        <text x="80" y="27" text-anchor="middle" fill="#14532d" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700">刷新控制面板</text>
+    </g>
+    <g transform="translate(395, 440)">
+        <polygon points="55,0 110,25 55,50 0,25" fill="url(#d11-g-judge)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="55" y="29" text-anchor="middle" fill="#78350f" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700">轮询超时?</text>
+    </g>
+    <g transform="translate(590, 445)" filter="url(#d11-sh)">
+        <rect width="100" height="40" rx="8" fill="url(#d11-g-act)" stroke="#cbd5e1" stroke-width="1.2"/>
+        <text x="50" y="24" text-anchor="middle" fill="#475569" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700">等待 1.5 秒</text>
+    </g>
+    <g transform="translate(340, 520)" filter="url(#d11-sh)">
+        <rect width="220" height="50" rx="8" fill="url(#d11-g-danger)" stroke="#f87171" stroke-width="1.5"/>
+        <text x="110" y="29" text-anchor="middle" fill="#7f1d1d" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700">提示关机超时</text>
+    </g>
+    <g transform="translate(395, 600)">
+        <polygon points="55,0 110,25 55,50 0,25" fill="url(#d11-g-judge)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="55" y="29" text-anchor="middle" fill="#78350f" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700">强制断电?</text>
+    </g>
+    <g transform="translate(610, 605)" filter="url(#d11-sh)">
+        <rect width="120" height="40" rx="8" fill="url(#d11-g-act)" stroke="#cbd5e1" stroke-width="1.2"/>
+        <text x="60" y="24" text-anchor="middle" fill="#64748b" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700">取消操作</text>
+    </g>
+    <g transform="translate(330, 690)" filter="url(#d11-sh)">
+        <rect width="240" height="50" rx="8" fill="url(#d11-g-danger)" stroke="#dc2626" stroke-width="2"/>
+        <text x="120" y="29" text-anchor="middle" fill="#7f1d1d" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700">执行强制断电</text>
+    </g>
+    <g transform="translate(350, 770)" filter="url(#d11-sh)">
+        <rect width="200" height="40" rx="20" fill="url(#d11-g-success)" stroke="#22c55e" stroke-width="2"/>
+        <text x="100" y="25" text-anchor="middle" fill="#14532d" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700">刷新面板并记录日志</text>
+    </g>
+</svg>
