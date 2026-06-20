@@ -1,0 +1,81 @@
+<svg width="980" height="520" viewBox="0 0 980 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <filter id="d8-shadow" x="-8%" y="-8%" width="116%" height="116%">
+            <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.04"/>
+        </filter>
+        <marker id="d8-arr-purple" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L0,6 L7,3 z" fill="#7e22ce"/>
+        </marker>
+        <marker id="d8-arr-slate" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L0,6 L7,3 z" fill="#64748b"/>
+        </marker>
+    </defs>
+    <rect width="980" height="520" fill="#ffffff" />
+    <text x="490" y="30" text-anchor="middle" fill="#0f172a" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="18" font-weight="800">系统模块调用与数据对象关系图</text>
+    
+    <rect x="40" y="70" width="220" height="420" rx="16" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5" />
+    <text x="150" y="105" text-anchor="middle" fill="#1e3a8a" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="14" font-weight="800">客户端</text>
+    
+    <rect x="310" y="70" width="340" height="420" rx="16" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5" />
+    <text x="480" y="105" text-anchor="middle" fill="#7c2d12" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="14" font-weight="800">公共数据模块</text>
+    
+    <rect x="700" y="70" width="240" height="420" rx="16" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5" />
+    <text x="820" y="105" text-anchor="middle" fill="#334155" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="14" font-weight="800">后端业务层</text>
+
+    <path d="M 240 210 L 340 170" stroke="#3b82f6" stroke-width="2" marker-end="url(#d8-arr-slate)"/>
+    <path d="M 620 170 L 730 170" stroke="#64748b" stroke-width="1.5" marker-end="url(#d8-arr-slate)"/>
+    <path d="M 820 205 L 820 310" stroke="#64748b" stroke-width="1.5" marker-end="url(#d8-arr-slate)"/>
+    <path d="M 730 340 L 620 340" stroke="#64748b" stroke-width="1.5" marker-end="url(#d8-arr-slate)"/>
+    <path d="M 480 340 L 480 290" stroke="#7e22ce" stroke-width="1.5" marker-end="url(#d8-arr-purple)"/>
+    <path d="M 340 260 L 240 230" stroke="#7e22ce" stroke-width="2" marker-end="url(#d8-arr-purple)"/>
+
+    <g transform="translate(290, 190)">
+        <rect x="-45" y="-10" width="90" height="20" rx="10" fill="#ffffff" stroke="#bfdbfe" stroke-width="1"/>
+        <text x="0" y="4" text-anchor="middle" fill="#1e3a8a" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="600">1. 发起请求</text>
+    </g>
+    <g transform="translate(675, 170)">
+        <rect x="-45" y="-10" width="90" height="20" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="0" y="4" text-anchor="middle" fill="#475569" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="600">2. 传入接口</text>
+    </g>
+    <g transform="translate(820, 260)">
+        <rect x="-45" y="-10" width="90" height="20" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="0" y="4" text-anchor="middle" fill="#475569" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="600">3. 业务调用</text>
+    </g>
+    <g transform="translate(675, 340)">
+        <rect x="-45" y="-10" width="90" height="20" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="0" y="4" text-anchor="middle" fill="#475569" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="600">4. 转换装配</text>
+    </g>
+    <g transform="translate(480, 315)">
+        <rect x="-40" y="-10" width="80" height="20" rx="10" fill="#ffffff" stroke="#e9d5ff" stroke-width="1"/>
+        <text x="0" y="4" text-anchor="middle" fill="#7e22ce" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="600">5. 统一封装</text>
+    </g>
+    <g transform="translate(290, 245)">
+        <rect x="-45" y="-10" width="90" height="20" rx="10" fill="#ffffff" stroke="#e9d5ff" stroke-width="1"/>
+        <text x="0" y="4" text-anchor="middle" fill="#7e22ce" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="600">6. 响应数据</text>
+    </g>
+
+    <g transform="translate(60, 175)" filter="url(#d8-shadow)">
+        <rect width="180" height="60" rx="10" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5"/>
+        <text x="90" y="34" text-anchor="middle" fill="#1e3a8a" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700">界面视图面板</text>
+    </g>
+    <g transform="translate(340, 140)" filter="url(#d8-shadow)">
+        <rect width="280" height="60" rx="10" fill="#ffffff" stroke="#ea580c" stroke-width="1.5"/>
+        <text x="140" y="34" text-anchor="middle" fill="#7c2d12" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700">操作请求对象</text>
+    </g>
+    <g transform="translate(340, 230)" filter="url(#d8-shadow)">
+        <rect width="280" height="60" rx="10" fill="#ffffff" stroke="#7e22ce" stroke-width="1.5"/>
+        <text x="140" y="34" text-anchor="middle" fill="#4a044e" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700">统一响应对象</text>
+    </g>
+    <g transform="translate(340, 340)" filter="url(#d8-shadow)">
+        <rect width="280" height="60" rx="10" fill="url(#d8-g)" stroke="#ea580c" stroke-width="1.5"/>
+        <text x="140" y="34" text-anchor="middle" fill="#7c2d12" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700">数据传输对象</text>
+    </g>
+    <g transform="translate(730, 140)" filter="url(#d8-shadow)">
+        <rect width="180" height="65" rx="10" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+        <text x="90" y="38" text-anchor="middle" fill="#0f172a" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700">接口控制器</text>
+    </g>
+    <g transform="translate(730, 310)" filter="url(#d8-shadow)">
+        <rect width="180" height="65" rx="10" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+        <text x="90" y="38" text-anchor="middle" fill="#0f172a" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700">业务服务类</text>
+    </g>
+</svg>

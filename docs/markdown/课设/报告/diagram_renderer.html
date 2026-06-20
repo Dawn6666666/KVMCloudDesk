@@ -1,0 +1,1729 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KVM 云平台管理系统 - 课程设计报告图表渲染工具</title>
+    <style>
+        :root {
+            --bg-color: #f1f5f9;
+            --card-bg: #ffffff;
+            --text-color: #0f172a;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 2px 8px -1px rgba(15, 23, 42, 0.03);
+            --shadow-lg: 0 20px 25px -5px rgba(15, 23, 42, 0.08), 0 10px 10px -5px rgba(15, 23, 42, 0.04);
+            --grid-color: #cbd5e1;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #0b0f19;
+            --card-bg: #151b2c;
+            --text-color: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #222f47;
+            --shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.3);
+            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.4);
+            --grid-color: #1e293b;
+        }
+
+        [data-theme="screenshot"] {
+            --bg-color: #ffffff;
+            --card-bg: #ffffff;
+            --text-color: #000000;
+            --text-muted: #4b5563;
+            --border-color: #cbd5e1;
+            --shadow: none;
+            --shadow-lg: none;
+            --grid-color: transparent;
+        }
+
+        [data-theme="screenshot-grid"] {
+            --bg-color: #ffffff;
+            --card-bg: #ffffff;
+            --text-color: #000000;
+            --text-muted: #4b5563;
+            --border-color: #cbd5e1;
+            --shadow: none;
+            --shadow-lg: none;
+            --grid-color: #f1f5f9;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.5;
+            transition: background-color 0.3s, color 0.3s;
+            overflow-x: hidden;
+        }
+
+        .header {
+            padding: 1.5rem 3rem;
+            border-bottom: 1px solid var(--border-color);
+            background-color: var(--card-bg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--shadow);
+            z-index: 10;
+            position: relative;
+        }
+
+        .header-title h1 {
+            font-size: 1.35rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .header-title p {
+            font-size: 0.825rem;
+            color: var(--text-muted);
+            margin-top: 0.2rem;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border-radius: 0.5rem;
+            border: 1px solid var(--border-color);
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .btn:hover {
+            border-color: var(--primary);
+            background-color: rgba(37, 99, 235, 0.03);
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+            color: white;
+            border-color: var(--primary-hover);
+        }
+
+        .btn-active {
+            border-color: var(--primary);
+            color: var(--primary);
+            background-color: rgba(37, 99, 235, 0.05);
+        }
+
+        .main-container {
+            display: flex;
+            max-width: 1440px;
+            margin: 2rem auto;
+            padding: 0 3rem;
+            gap: 2rem;
+        }
+
+        .sidebar {
+            width: 320px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .sidebar-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+        }
+
+        .sidebar-card h3 {
+            font-size: 0.9rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .nav-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .nav-item {
+            padding: 0.65rem 0.85rem;
+            font-size: 0.8rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--text-muted);
+            font-weight: 600;
+            border: 1px solid transparent;
+        }
+
+        .nav-item:hover {
+            background-color: rgba(37, 99, 235, 0.04);
+            color: var(--primary);
+        }
+
+        .nav-item.active {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+        }
+
+        .content-area {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .canvas-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            padding: 2.5rem;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            min-height: 580px;
+            transition: background-color 0.3s, border-color 0.3s, padding 0.3s;
+            background-image: radial-gradient(var(--grid-color) 1.2px, transparent 1.2px);
+            background-size: 24px 24px;
+        }
+
+        .screenshot-mode-active .canvas-card {
+            border: none;
+            border-radius: 0;
+            padding: 0;
+            box-shadow: none;
+            margin: auto;
+        }
+
+        .screenshot-helper {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+            text-align: center;
+        }
+
+        /* SVG Global Classes */
+        svg {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        .svg-title {
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+
+        .svg-node-text {
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .svg-node-sub {
+            font-size: 10px;
+            font-weight: 500;
+        }
+
+        .svg-label-text {
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .svg-group-title {
+            font-size: 14px;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+        }
+
+        .svg-group-sub {
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        kbd {
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 0.25rem;
+            padding: 0.1rem 0.3rem;
+            font-size: 0.75rem;
+            font-family: monospace;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header" id="navbar">
+        <div class="header-title">
+            <h1>KVM 课程设计图表高精度渲染器</h1>
+            <p>已全量收录并优化报告正文中全部16个核心插图与逻辑图，支持一键白底截图导出</p>
+        </div>
+        <div class="toolbar">
+            <button class="btn btn-active" onclick="setTheme('default')" id="theme-default">明亮模式</button>
+            <button class="btn" onclick="setTheme('dark')" id="theme-dark">极客暗黑</button>
+            <button class="btn" onclick="setTheme('screenshot-grid')" id="theme-grid">白底+点阵网格</button>
+            <button class="btn btn-primary" onclick="setTheme('screenshot')" id="theme-screenshot">白底纯净 (截图)</button>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-card">
+                <h3>图表选择列表</h3>
+                <ul class="nav-list">
+                    <li class="nav-item active" onclick="switchDiagram(0)" id="nav-0">图1-1 部署拓扑图</li>
+                    <li class="nav-item" onclick="switchDiagram(1)" id="nav-1">图1-2 能力检查终端</li>
+                    <li class="nav-item" onclick="switchDiagram(2)" id="nav-2">图2-1 管理员用例图</li>
+                    <li class="nav-item" onclick="switchDiagram(3)" id="nav-3">安全关机时序图</li>
+                    <li class="nav-item" onclick="switchDiagram(4)" id="nav-4">图2-2 生命周期状态图</li>
+                    <li class="nav-item" onclick="switchDiagram(5)" id="nav-5">图3-1 总体部署架构图</li>
+                    <li class="nav-item" onclick="switchDiagram(6)" id="nav-6">图3-2 项目模块依赖图</li>
+                    <li class="nav-item" onclick="switchDiagram(7)" id="nav-7">图3-3 双模式服务结构图</li>
+                    <li class="nav-item" onclick="switchDiagram(8)" id="nav-8">图3-4 数据对象关系图</li>
+                    <li class="nav-item" onclick="switchDiagram(9)" id="nav-9">核心对象类图</li>
+                    <li class="nav-item" onclick="switchDiagram(10)" id="nav-10">网页端页面结构图</li>
+                    <li class="nav-item" onclick="switchDiagram(11)" id="nav-11">图4-1 关机轮询流程图</li>
+                    <li class="nav-item" onclick="switchDiagram(12)" id="nav-12">图5-1 主控看板界面</li>
+                    <li class="nav-item" onclick="switchDiagram(13)" id="nav-13">图5-2 生命周期控制界面</li>
+                    <li class="nav-item" onclick="switchDiagram(14)" id="nav-14">图6-1 小组成员分工图</li>
+                    <li class="nav-item" onclick="switchDiagram(15)" id="nav-15">图6-2 实施进度甘特图</li>
+                </ul>
+            </div>
+            <div class="sidebar-card">
+                <h3>截图说明</h3>
+                <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.6;">
+                    1. 推荐选择<strong>“白底纯净 (截图)”</strong>以输出标准的报告无背景插图。<br><br>
+                    2. 调整浏览器缩放到 100%。<br><br>
+                    3. 按系统快捷键截图：<br>
+                    - Win: <kbd>Win + Shift + S</kbd><br>
+                    - Mac: <kbd>Cmd + Shift + 4</kbd><br><br>
+                    4. 截图完成后，按键盘 <kbd>ESC</kbd> 键立刻复原侧栏与导航。
+                </p>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <div class="canvas-card" id="canvas-card">
+                
+                <!-- DIAGRAM 0: DEPLOYMENT TOPOLOGY (图1-1) -->
+                <svg id="diagram-0" width="980" height="420" viewBox="0 0 980 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="d0-g-host" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#eff6ff"/><stop offset="100%" stop-color="#dbeafe"/>
+                        </linearGradient>
+                        <linearGradient id="d0-g-card" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#f8fafc"/>
+                        </linearGradient>
+                        <filter id="d0-sh" x="-8%" y="-8%" width="116%" height="116%">
+                            <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.04"/>
+                        </filter>
+                        <marker id="d0-arr-slate" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L7,3 z" fill="#64748b"/>
+                        </marker>
+                        <marker id="d0-arr-blue" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L7,3 z" fill="#3b82f6"/>
+                        </marker>
+                    </defs>
+                    <rect class="svg-bg" width="980" height="420" fill="transparent" />
+                    <text class="svg-title" x="490" y="35" text-anchor="middle" fill="#0f172a">KVM 云平台部署拓扑图</text>
+
+                    <!-- Host Card -->
+                    <rect x="420" y="75" width="510" height="300" rx="16" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5" />
+                    <text class="svg-group-title" x="675" y="105" text-anchor="middle" fill="#475569">物理宿主机环境</text>
+                    <text class="svg-group-sub" x="675" y="122" text-anchor="middle" fill="#94a3b8">CentOS Stream 10</text>
+
+                    <!-- Connections -->
+                    <path d="M 230 220 L 440 180" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#d0-arr-blue)"/>
+                    <path d="M 570 180 L 710 180" stroke="#64748b" stroke-width="1.5" marker-end="url(#d0-arr-slate)"/>
+                    <path d="M 800 210 L 800 260" stroke="#64748b" stroke-width="1.5" marker-end="url(#d0-arr-slate)"/>
+                    <path d="M 710 290 L 570 290" stroke="#64748b" stroke-width="1.5" marker-end="url(#d0-arr-slate)"/>
+                    <path d="M 710 320 L 610 350" stroke="#64748b" stroke-width="1.5" marker-end="url(#d0-arr-slate)"/>
+
+                    <!-- Badges -->
+                    <g transform="translate(325, 195)">
+                        <rect x="-45" y="-10" width="90" height="20" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#64748b">HTTP 协议</text>
+                    </g>
+
+                    <!-- Nodes -->
+                    <g transform="translate(50, 185)" filter="url(#d0-sh)">
+                        <rect width="180" height="70" rx="10" fill="url(#d0-g-host)" stroke="#3b82f6" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="90" y="32" text-anchor="middle" fill="#1e3a8a">Windows 开发机</text>
+                        <text class="svg-node-sub" x="90" y="50" text-anchor="middle" fill="#2563eb">网页端与桌面客户端</text>
+                    </g>
+                    <g transform="translate(440, 150)" filter="url(#d0-sh)">
+                        <rect width="130" height="60" rx="10" fill="url(#d0-g-card)" stroke="#475569" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="65" y="28" text-anchor="middle" fill="#0f172a">后端业务服务</text>
+                        <text class="svg-node-sub" x="65" y="44" text-anchor="middle" fill="#475569">Spring Boot</text>
+                    </g>
+                    <g transform="translate(710, 150)" filter="url(#d0-sh)">
+                        <rect width="180" height="60" rx="10" fill="url(#d0-g-card)" stroke="#475569" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="90" y="28" text-anchor="middle" fill="#0f172a">虚拟化守护进程</text>
+                        <text class="svg-node-sub" x="90" y="44" text-anchor="middle" fill="#475569">libvirt</text>
+                    </g>
+                    <g transform="translate(440, 260)" filter="url(#d0-sh)">
+                        <rect width="130" height="60" rx="10" fill="url(#d0-g-card)" stroke="#cbd5e1" stroke-width="1.2"/>
+                        <text class="svg-node-text" x="65" y="28" text-anchor="middle" fill="#3f3f46">默认虚拟网络</text>
+                        <text class="svg-node-sub" x="65" y="44" text-anchor="middle" fill="#71717a">virbr0 桥接</text>
+                    </g>
+                    <g transform="translate(710, 260)" filter="url(#d0-sh)">
+                        <rect width="180" height="60" rx="10" fill="url(#d0-g-card)" stroke="#10b981" stroke-width="2"/>
+                        <text class="svg-node-text" x="90" y="28" text-anchor="middle" fill="#064e3b">虚拟机实例</text>
+                        <text class="svg-node-sub" x="90" y="44" text-anchor="middle" fill="#15803d">KVM 虚拟机</text>
+                    </g>
+                    <g transform="translate(480, 330)" filter="url(#d0-sh)">
+                        <rect width="130" height="35" rx="8" fill="url(#d0-g-card)" stroke="#cbd5e1" stroke-width="1.2"/>
+                        <text class="svg-node-text" x="65" y="22" text-anchor="middle" fill="#3f3f46">默认存储池</text>
+                    </g>
+                </svg>
+
+                <!-- DIAGRAM 1: LINUX TERMINAL SCREENSHOT (图1-2) -->
+                <svg id="diagram-1" class="hidden" width="980" height="420" viewBox="0 0 980 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect class="svg-bg" width="980" height="420" fill="transparent" />
+                    <text class="svg-title" x="490" y="35" text-anchor="middle" fill="#0f172a">宿主机虚拟化能力检查终端界面</text>
+                    
+                    <!-- Terminal Window Container -->
+                    <g transform="translate(140, 65)">
+                        <rect width="700" height="320" rx="10" fill="#1e1e24" stroke="#475569" stroke-width="1.5"/>
+                        <!-- Terminal Title Bar -->
+                        <rect width="700" height="32" rx="10" fill="#2d2d39"/>
+                        <!-- Window Control Buttons (macOS Style) -->
+                        <circle cx="20" cy="16" r="6" fill="#ff5f56"/>
+                        <circle cx="40" cy="16" r="6" fill="#ffbd2e"/>
+                        <circle cx="60" cy="16" r="6" fill="#27c93f"/>
+                        <text x="350" y="21" text-anchor="middle" fill="#94a3b8" font-size="12" font-family="monospace">root@centos:~</text>
+
+                        <!-- CLI output -->
+                        <g transform="translate(20, 50)" font-family="Consolas, Monaco, monospace" font-size="12">
+                            <!-- Cmd 1 -->
+                            <text x="0" y="20" fill="#22c55e">[root@centos ~]# <tspan fill="#ffffff">grep -E 'vmx|svm' /proc/cpuinfo</tspan></text>
+                            <text x="0" y="40" fill="#94a3b8">flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov</text>
+                            <text x="0" y="55" fill="#94a3b8">pat clflush mmx fxsr sse sse2 ht syscall nx <tspan fill="#eab308" font-weight="bold">svm</tspan> extapic cr8_legacy nested_virt</text>
+
+                            <!-- Cmd 2 -->
+                            <text x="0" y="90" fill="#22c55e">[root@centos ~]# <tspan fill="#ffffff">lsmod | grep kvm</tspan></text>
+                            <text x="0" y="110" fill="#ffffff">kvm_amd               167936  0</text>
+                            <text x="0" y="125" fill="#ffffff">kvm                  1089536  1 kvm_amd</text>
+                            <text x="0" y="140" fill="#ffffff">irqbypass              16384  1 kvm</text>
+
+                            <!-- Cmd 3 -->
+                            <text x="0" y="175" fill="#22c55e">[root@centos ~]# <tspan fill="#ffffff">virsh -c qemu:///system list --all</tspan></text>
+                            <text x="0" y="195" fill="#38bdf8"> Id   名称   状态</text>
+                            <text x="0" y="210" fill="#94a3b8">--------------------</text>
+                            <text x="0" y="225" fill="#ffffff"> -    demo   关闭</text>
+                            
+                            <text x="0" y="260" fill="#22c55e">[root@centos ~]# <tspan fill="#a855f7" class="blink">█</tspan></text>
+                        </g>
+                    </g>
+                </svg>
+
+                <!-- DIAGRAM 2: USE CASE (图2-1) -->
+                <svg id="diagram-2" class="hidden" width="980" height="420" viewBox="0 0 980 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="d2-g-use" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#eff6ff"/>
+                        </linearGradient>
+                        <filter id="d2-sh" x="-10%" y="-10%" width="120%" height="120%">
+                            <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.04"/>
+                        </filter>
+                    </defs>
+                    <rect class="svg-bg" width="980" height="420" fill="transparent" />
+                    <text class="svg-title" x="490" y="35" text-anchor="middle" fill="#0f172a">系统管理员整体用例图</text>
+
+                    <!-- Actor SVG Draw -->
+                    <g transform="translate(440, 120)" filter="url(#d2-sh)">
+                        <circle cx="50" cy="30" r="18" fill="#dbeafe" stroke="#2563eb" stroke-width="2" />
+                        <path d="M 50 48 L 50 100 M 25 70 L 75 70 M 50 100 L 30 140 M 50 100 L 70 140" stroke="#2563eb" stroke-width="3" stroke-linecap="round"/>
+                        <text class="svg-node-text" x="50" y="165" text-anchor="middle" fill="#1e3a8a">系统管理员</text>
+                    </g>
+
+                    <!-- Connections to Use Cases -->
+                    <path d="M 465 190 L 310 115" stroke="#94a3b8" stroke-width="1.2"/>
+                    <path d="M 465 190 L 310 215" stroke="#94a3b8" stroke-width="1.2"/>
+                    <path d="M 465 190 L 310 315" stroke="#94a3b8" stroke-width="1.2"/>
+                    <path d="M 515 190 L 670 115" stroke="#94a3b8" stroke-width="1.2"/>
+                    <path d="M 515 190 L 670 215" stroke="#94a3b8" stroke-width="1.2"/>
+                    <path d="M 515 190 L 670 315" stroke="#94a3b8" stroke-width="1.2"/>
+
+                    <!-- Use Case Ellipses -->
+                    <g transform="translate(150, 90)" filter="url(#d2-sh)">
+                        <rect width="160" height="50" rx="25" fill="url(#d2-g-use)" stroke="#3b82f6" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="80" y="29" text-anchor="middle" fill="#1e3a8a">查看宿主机</text>
+                    </g>
+                    <g transform="translate(670, 90)" filter="url(#d2-sh)">
+                        <rect width="160" height="50" rx="25" fill="url(#d2-g-use)" stroke="#3b82f6" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="80" y="29" text-anchor="middle" fill="#1e3a8a">管理网络</text>
+                    </g>
+                    <g transform="translate(150, 190)" filter="url(#d2-sh)">
+                        <rect width="160" height="50" rx="25" fill="url(#d2-g-use)" stroke="#3b82f6" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="80" y="29" text-anchor="middle" fill="#1e3a8a">管理虚拟机</text>
+                    </g>
+                    <g transform="translate(670, 190)" filter="url(#d2-sh)">
+                        <rect width="160" height="50" rx="25" fill="url(#d2-g-use)" stroke="#3b82f6" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="80" y="29" text-anchor="middle" fill="#1e3a8a">查看存储</text>
+                    </g>
+                    <g transform="translate(150, 290)" filter="url(#d2-sh)">
+                        <rect width="160" height="50" rx="25" fill="url(#d2-g-use)" stroke="#3b82f6" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="80" y="29" text-anchor="middle" fill="#1e3a8a">管理镜像</text>
+                    </g>
+                    <g transform="translate(670, 290)" filter="url(#d2-sh)">
+                        <rect width="160" height="50" rx="25" fill="url(#d2-g-use)" stroke="#3b82f6" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="80" y="29" text-anchor="middle" fill="#1e3a8a">管理快照</text>
+                    </g>
+                </svg>
+
+                <!-- DIAGRAM 3: SEQUENCE DIAGRAM (虚拟机安全关机时序图) -->
+                <svg id="diagram-3" class="hidden" width="980" height="520" viewBox="0 0 980 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <filter id="d3-sh" x="-10%" y="-10%" width="120%" height="120%">
+                            <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#0f172a" flood-opacity="0.04"/>
+                        </filter>
+                        <marker id="d3-arr-gray" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L7,3 z" fill="#64748b"/>
+                        </marker>
+                        <marker id="d3-arr-blue" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L7,3 z" fill="#2563eb"/>
+                        </marker>
+                        <marker id="d3-arr-red" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L7,3 z" fill="#ef4444"/>
+                        </marker>
+                    </defs>
+                    <rect class="svg-bg" width="980" height="520" fill="transparent" />
+                    <text class="svg-title" x="490" y="30" text-anchor="middle" fill="#0f172a">虚拟机安全关机与超时降级时序图</text>
+
+                    <!-- Lifelines -->
+                    <g opacity="0.4">
+                        <line x1="150" y1="100" x2="150" y2="480" stroke="#64748b" stroke-width="1" stroke-dasharray="4,4"/>
+                        <line x1="380" y1="100" x2="380" y2="480" stroke="#64748b" stroke-width="1" stroke-dasharray="4,4"/>
+                        <line x1="610" y1="100" x2="610" y2="480" stroke="#64748b" stroke-width="1" stroke-dasharray="4,4"/>
+                        <line x1="840" y1="100" x2="840" y2="480" stroke="#64748b" stroke-width="1" stroke-dasharray="4,4"/>
+                    </g>
+
+                    <!-- Participant Boxes -->
+                    <g transform="translate(60, 60)" filter="url(#d3-sh)">
+                        <rect width="180" height="35" rx="6" fill="#f8fafc" stroke="#475569" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="90" y="22" text-anchor="middle" fill="#0f172a">系统管理员</text>
+                    </g>
+                    <g transform="translate(290, 60)" filter="url(#d3-sh)">
+                        <rect width="180" height="35" rx="6" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="90" y="22" text-anchor="middle" fill="#1e3a8a">前端控制页面</text>
+                    </g>
+                    <g transform="translate(520, 60)" filter="url(#d3-sh)">
+                        <rect width="180" height="35" rx="6" fill="#fcf7ee" stroke="#ea580c" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="90" y="22" text-anchor="middle" fill="#7c2d12">后端业务服务</text>
+                    </g>
+                    <g transform="translate(750, 60)" filter="url(#d3-sh)">
+                        <rect width="180" height="35" rx="6" fill="#f0fdf4" stroke="#10b981" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="90" y="22" text-anchor="middle" fill="#14532d">虚拟化底层</text>
+                    </g>
+
+                    <!-- Activation Boxes -->
+                    <rect x="375" y="115" width="10" height="330" fill="#bfdbfe" rx="2"/>
+                    <rect x="605" y="195" width="10" height="85" fill="#fed7aa" rx="2"/>
+                    <rect x="605" y="325" width="10" height="100" fill="#fed7aa" rx="2"/>
+                    <rect x="835" y="215" width="10" height="40" fill="#bbf7d0" rx="2"/>
+
+                    <!-- Messages -->
+                    <!-- 1. 点击关机 -->
+                    <path d="M 150 120 L 370 120" stroke="#2563eb" stroke-width="1.5" marker-end="url(#d3-arr-blue)"/>
+                    <text class="svg-label-text" x="260" y="114" text-anchor="middle" fill="#1e3a8a">1. 点击安全关机</text>
+                    
+                    <!-- 2. 二次确认 -->
+                    <path d="M 370 150 L 150 150" stroke="#64748b" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#d3-arr-gray)"/>
+                    <text class="svg-label-text" x="260" y="144" text-anchor="middle" fill="#475569">2. 弹出确认框并同意</text>
+
+                    <!-- 3. 发送关机请求 -->
+                    <path d="M 385 200 L 605 200" stroke="#2563eb" stroke-width="1.5" marker-end="url(#d3-arr-blue)"/>
+                    <text class="svg-label-text" x="495" y="194" text-anchor="middle" fill="#1e3a8a">3. 关机命令请求</text>
+
+                    <!-- 4. 调用接口 -->
+                    <path d="M 615 220 L 830 220" stroke="#64748b" stroke-width="1.5" marker-end="url(#d3-arr-gray)"/>
+                    <text class="svg-label-text" x="725" y="214" text-anchor="middle" fill="#475569">4. 执行安全关机</text>
+
+                    <!-- 5. 状态轮询 -->
+                    <path d="M 385 270 L 605 270" stroke="#2563eb" stroke-width="1.5" marker-end="url(#d3-arr-blue)"/>
+                    <text class="svg-label-text" x="495" y="264" text-anchor="middle" fill="#1e3a8a">5. 轮询状态</text>
+
+                    <path d="M 605 300 L 385 300" stroke="#16a34a" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#d3-arr-gray)"/>
+                    <text class="svg-label-text" x="495" y="294" text-anchor="middle" fill="#15803d">6. 返回正常关闭状态</text>
+
+                    <!-- 7. 超时分支：降级处理 -->
+                    <path d="M 385 335 L 605 335" stroke="#ef4444" stroke-width="1.5" marker-end="url(#d3-arr-red)"/>
+                    <text class="svg-label-text" x="495" y="329" text-anchor="middle" fill="#b91c1c">7. 安全关机超时</text>
+
+                    <!-- 8. 引导断电 -->
+                    <path d="M 370 370 L 150 370" stroke="#ef4444" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#d3-arr-gray)"/>
+                    <text class="svg-label-text" x="260" y="364" text-anchor="middle" fill="#b91c1c">8. 页面提示并确认强制断电</text>
+
+                    <!-- 9. 强制销毁 -->
+                    <path d="M 385 410 L 605 410" stroke="#ef4444" stroke-width="1.5" marker-end="url(#d3-arr-red)"/>
+                    <text class="svg-label-text" x="495" y="404" text-anchor="middle" fill="#b91c1c">9. 强制销毁虚拟机请求</text>
+
+                    <!-- 10. 刷新列表 -->
+                    <path d="M 370 440 L 150 440" stroke="#16a34a" stroke-width="1.5" marker-end="url(#d3-arr-gray)"/>
+                    <text class="svg-label-text" x="260" y="434" text-anchor="middle" fill="#15803d">10. 刷新控制面板列表</text>
+                </svg>
+
+                <!-- DIAGRAM 4: VM STATE MACHINE (图2-2) -->
+                <svg id="diagram-4" class="hidden" width="980" height="500" viewBox="0 0 980 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="d4-g-def" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#f1f5f9"/>
+                        </linearGradient>
+                        <linearGradient id="d4-g-run" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#ecfdf5"/><stop offset="100%" stop-color="#d1fae5"/>
+                        </linearGradient>
+                        <linearGradient id="d4-g-pause" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#fffbeb"/><stop offset="100%" stop-color="#fef3c7"/>
+                        </linearGradient>
+                        <linearGradient id="d4-g-shut" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#fef2f2"/><stop offset="100%" stop-color="#fee2e2"/>
+                        </linearGradient>
+                        <linearGradient id="d4-g-del" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#f8fafc"/><stop offset="100%" stop-color="#f1f5f9"/>
+                        </linearGradient>
+                        <filter id="d4-sh" x="-8%" y="-8%" width="116%" height="116%">
+                            <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.04"/>
+                        </filter>
+                        <marker id="d4-arr-slate" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L7,3 z" fill="#64748b"/>
+                        </marker>
+                        <marker id="d4-arr-green" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L7,3 z" fill="#16a34a"/>
+                        </marker>
+                        <marker id="d4-arr-orange" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L7,3 z" fill="#ea580c"/>
+                        </marker>
+                        <marker id="d4-arr-red" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L7,3 z" fill="#ef4444"/>
+                        </marker>
+                        <marker id="d4-arr-red-dark" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L7,3 z" fill="#b91c1c"/>
+                        </marker>
+                    </defs>
+                    <rect class="svg-bg" width="980" height="500" fill="transparent" />
+                    <text class="svg-title" x="490" y="35" text-anchor="middle" fill="#0f172a">虚拟机生命周期状态流转图</text>
+                    
+                    <path d="M 60 165 L 130 165" stroke="#64748b" stroke-width="1.5" marker-end="url(#d4-arr-slate)"/>
+                    <path d="M 230 165 L 390 165" stroke="#64748b" stroke-width="1.5" marker-end="url(#d4-arr-slate)"/>
+                    <path d="M 520 155 L 680 155" stroke="#ea580c" stroke-width="1.5" marker-end="url(#d4-arr-orange)"/>
+                    <path d="M 680 175 L 525 175" stroke="#16a34a" stroke-width="1.5" marker-end="url(#d4-arr-green)"/>
+                    <path d="M 430 190 L 430 350" stroke="#ef4444" stroke-width="1.5" marker-end="url(#d4-arr-red)"/>
+                    <path d="M 480 190 L 480 350" stroke="#b91c1c" stroke-width="1.5" stroke-dasharray="3,3" marker-end="url(#d4-arr-red-dark)"/>
+                    <path d="M 720 190 L 515 350" stroke="#b91c1c" stroke-width="1.5" stroke-dasharray="3,3" fill="none" marker-end="url(#d4-arr-red-dark)"/>
+                    <path d="M 410 375 C 310 375, 310 165, 395 165" stroke="#16a34a" stroke-width="1.5" fill="none" marker-end="url(#d4-arr-green)"/>
+                    <path d="M 520 375 L 680 375" stroke="#64748b" stroke-width="1.5" marker-end="url(#d4-arr-slate)"/>
+                    <path d="M 810 375 L 860 375" stroke="#64748b" stroke-width="1.5" marker-end="url(#d4-arr-slate)"/>
+ 
+                    <g transform="translate(95, 165)">
+                        <rect x="-20" y="-9" width="40" height="18" rx="9" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#475569">创建</text>
+                    </g>
+                    <g transform="translate(310, 165)">
+                        <rect x="-20" y="-9" width="40" height="18" rx="9" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#475569">启动</text>
+                    </g>
+                    <g transform="translate(600, 155)">
+                        <rect x="-20" y="-9" width="40" height="18" rx="9" fill="#ffffff" stroke="#fed7aa" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#c2410c">暂停</text>
+                    </g>
+                    <g transform="translate(600, 175)">
+                        <rect x="-20" y="-9" width="40" height="18" rx="9" fill="#ffffff" stroke="#bbf7d0" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#15803d">恢复</text>
+                    </g>
+                    <g transform="translate(430, 235)">
+                        <rect x="-30" y="-9" width="60" height="18" rx="9" fill="#ffffff" stroke="#fca5a5" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#b91c1c">安全关机</text>
+                    </g>
+                    <g transform="translate(480, 305)">
+                        <rect x="-30" y="-9" width="60" height="18" rx="9" fill="#ffffff" stroke="#fee2e2" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#991b1b">强制断电</text>
+                    </g>
+                    <g transform="translate(620, 270)">
+                        <rect x="-30" y="-9" width="60" height="18" rx="9" fill="#ffffff" stroke="#fee2e2" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#991b1b">强制断电</text>
+                    </g>
+                    <g transform="translate(310, 270)">
+                        <rect x="-20" y="-9" width="40" height="18" rx="9" fill="#ffffff" stroke="#bbf7d0" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#15803d">启动</text>
+                    </g>
+                    <g transform="translate(595, 375)">
+                        <rect x="-20" y="-9" width="40" height="18" rx="9" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#475569">删除</text>
+                    </g>
+ 
+                    <circle cx="50" cy="165" r="5" fill="#64748b" />
+                    <circle cx="870" cy="375" r="5" fill="#64748b" />
+                    <circle cx="870" cy="375" r="10" stroke="#64748b" stroke-width="1.5" fill="none" />
+ 
+                    <g transform="translate(130, 140)" filter="url(#d4-sh)">
+                        <rect width="100" height="50" rx="8" fill="url(#d4-g-def)" stroke="#cbd5e1" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="50" y="29" text-anchor="middle" fill="#1e293b">已定义</text>
+                    </g>
+                    <g transform="translate(390, 140)" filter="url(#d4-sh)">
+                        <rect width="130" height="50" rx="8" fill="url(#d4-g-run)" stroke="#10b981" stroke-width="2"/>
+                        <text class="svg-node-text" x="65" y="29" text-anchor="middle" fill="#14532d">运行中</text>
+                    </g>
+                    <g transform="translate(680, 140)" filter="url(#d4-sh)">
+                        <rect width="130" height="50" rx="8" fill="url(#d4-g-pause)" stroke="#fbbf24" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="65" y="29" text-anchor="middle" fill="#78350f">已暂停</text>
+                    </g>
+                    <g transform="translate(390, 350)" filter="url(#d4-sh)">
+                        <rect width="130" height="50" rx="8" fill="url(#d4-g-shut)" stroke="#f87171" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="65" y="29" text-anchor="middle" fill="#7f1d1d">已关闭</text>
+                    </g>
+                    <g transform="translate(680, 350)" filter="url(#d4-sh)">
+                        <rect width="130" height="50" rx="8" fill="url(#d4-g-del)" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4,3"/>
+                        <text class="svg-node-text" x="65" y="29" text-anchor="middle" fill="#3f3f46">已删除</text>
+                    </g>
+                </svg>
+
+                <!-- DIAGRAM 5: DEPLOYMENT ARCHITECTURE (图3-1) -->
+                <svg id="diagram-5" class="hidden" width="980" height="420" viewBox="0 0 980 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="d5-g" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#f8fafc"/>
+                        </linearGradient>
+                        <filter id="d5-sh" x="-8%" y="-8%" width="116%" height="116%">
+                            <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.04"/>
+                        </filter>
+                        <marker id="d5-arr-slate" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L7,3 z" fill="#64748b"/>
+                        </marker>
+                        <marker id="d5-arr-orange" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L7,3 z" fill="#ea580c"/>
+                        </marker>
+                        <marker id="d5-arr-green" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L7,3 z" fill="#16a34a"/>
+                        </marker>
+                    </defs>
+                    <rect class="svg-bg" width="980" height="420" fill="transparent" />
+                    <text class="svg-title" x="490" y="35" text-anchor="middle" fill="#0f172a">系统总体部署架构图</text>
+
+                    <!-- Horizontal Connections -->
+                    <path d="M 180 210 L 320 210" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#d5-arr-slate)"/>
+                    <path d="M 460 210 L 520 210" stroke="#64748b" stroke-width="1.5" marker-end="url(#d5-arr-slate)"/>
+                    <path d="M 640 210 Q 700 130, 760 130" stroke="#ea580c" stroke-width="1.5" marker-end="url(#d5-arr-orange)"/>
+                    <path d="M 640 210 Q 700 290, 760 290" stroke="#16a34a" stroke-width="1.5" marker-end="url(#d5-arr-green)"/>
+                    <path d="M 870 290 L 890 290" stroke="#16a34a" stroke-width="1.5" marker-end="url(#d5-arr-green)"/>
+
+                    <!-- Badges -->
+                    <g transform="translate(250, 210)">
+                        <rect x="-35" y="-10" width="70" height="20" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#64748b">HTTP 协议</text>
+                    </g>
+                    <g transform="translate(685, 150)">
+                        <rect x="-35" y="-10" width="70" height="20" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#c2410c">Windows 开发</text>
+                    </g>
+                    <g transform="translate(685, 270)">
+                        <rect x="-35" y="-10" width="70" height="20" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#15803d">CentOS 部署</text>
+                    </g>
+
+                    <!-- Nodes -->
+                    <g transform="translate(40, 180)" filter="url(#d5-sh)">
+                        <rect width="140" height="60" rx="8" fill="url(#d5-g)" stroke="#3b82f6" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="70" y="28" text-anchor="middle" fill="#1e3a8a">客户端</text>
+                        <text class="svg-node-sub" x="70" y="44" text-anchor="middle" fill="#2563eb">网页端与桌面端</text>
+                    </g>
+                    <g transform="translate(320, 180)" filter="url(#d5-sh)">
+                        <rect width="140" height="60" rx="8" fill="url(#d5-g)" stroke="#475569" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="70" y="34" text-anchor="middle" fill="#0f172a">控制器层</text>
+                    </g>
+                    <g transform="translate(520, 180)" filter="url(#d5-sh)">
+                        <rect width="120" height="60" rx="8" fill="url(#d5-g)" stroke="#475569" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="60" y="34" text-anchor="middle" fill="#0f172a">业务服务层</text>
+                    </g>
+                    <g transform="translate(760, 100)" filter="url(#d5-sh)">
+                        <rect width="110" height="60" rx="8" fill="url(#d5-g)" stroke="#ea580c" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="55" y="28" text-anchor="middle" fill="#7c2d12">模拟服务</text>
+                        <text class="svg-node-sub" x="55" y="44" text-anchor="middle" fill="#ea580c">内存假数据</text>
+                    </g>
+                    <g transform="translate(760, 260)" filter="url(#d5-sh)">
+                        <rect width="110" height="60" rx="8" fill="url(#d5-g)" stroke="#16a34a" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="55" y="28" text-anchor="middle" fill="#15803d">虚拟化服务</text>
+                        <text class="svg-node-sub" x="55" y="44" text-anchor="middle" fill="#16a34a">JNA 加载</text>
+                    </g>
+                    <g transform="translate(890, 265)" filter="url(#d5-sh)">
+                        <rect width="70" height="50" rx="8" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="35" y="29" text-anchor="middle" fill="#4c1d95">KVM</text>
+                    </g>
+                </svg>
+
+                <!-- DIAGRAM 6: MODULE DEPENDENCY (图3-2) -->
+                <svg id="diagram-6" class="hidden" width="980" height="420" viewBox="0 0 980 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="d6-g" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#f8fafc"/>
+                        </linearGradient>
+                        <filter id="d6-sh" x="-8%" y="-8%" width="116%" height="116%">
+                            <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.04"/>
+                        </filter>
+                        <marker id="d6-arr-slate" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L7,3 z" fill="#64748b"/>
+                        </marker>
+                    </defs>
+                    <rect class="svg-bg" width="980" height="420" fill="transparent" />
+                    <text class="svg-title" x="490" y="35" text-anchor="middle" fill="#0f172a">项目模块依赖关系图</text>
+
+                    <!-- Connections -->
+                    <path d="M 230 145 L 420 190" stroke="#64748b" stroke-width="1.5" marker-end="url(#d6-arr-slate)"/>
+                    <path d="M 230 275 L 420 230" stroke="#64748b" stroke-width="1.5" marker-end="url(#d6-arr-slate)"/>
+                    <path d="M 570 210 L 730 210" stroke="#2563eb" stroke-width="1.5" marker-end="url(#d6-arr-slate)"/>
+                    <path d="M 230 120 C 350 70, 600 70, 740 180" stroke="#64748b" stroke-width="1.2" stroke-dasharray="3,3" fill="none" marker-end="url(#d6-arr-slate)"/>
+                    <path d="M 230 300 C 350 350, 600 350, 740 240" stroke="#64748b" stroke-width="1.2" stroke-dasharray="3,3" fill="none" marker-end="url(#d6-arr-slate)"/>
+
+                    <!-- Badges -->
+                    <g transform="translate(300, 155)">
+                        <rect x="-25" y="-10" width="50" height="20" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#64748b">HTTP</text>
+                    </g>
+                    <g transform="translate(300, 265)">
+                        <rect x="-25" y="-10" width="50" height="20" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#64748b">HTTP</text>
+                    </g>
+                    <g transform="translate(650, 210)">
+                        <rect x="-35" y="-10" width="70" height="20" rx="10" fill="#ffffff" stroke="#bfdbfe" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#1e3a8a">引用模型</text>
+                    </g>
+
+                    <!-- Nodes -->
+                    <g transform="translate(50, 95)" filter="url(#d6-sh)">
+                        <rect width="180" height="50" rx="8" fill="url(#d6-g)" stroke="#475569" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="90" y="24" text-anchor="middle" fill="#0f172a">桌面端</text>
+                        <text class="svg-node-sub" x="90" y="38" text-anchor="middle" fill="#475569">桌面控制面板</text>
+                    </g>
+                    <g transform="translate(50, 255)" filter="url(#d6-sh)">
+                        <rect width="180" height="50" rx="8" fill="url(#d6-g)" stroke="#475569" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="90" y="24" text-anchor="middle" fill="#0f172a">网页端</text>
+                        <text class="svg-node-sub" x="90" y="38" text-anchor="middle" fill="#475569">网页浏览器界面</text>
+                    </g>
+                    <g transform="translate(420, 180)" filter="url(#d6-sh)">
+                        <rect width="150" height="60" rx="8" fill="url(#d6-g)" stroke="#3b82f6" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="75" y="28" text-anchor="middle" fill="#1e3a8a">后端服务</text>
+                        <text class="svg-node-sub" x="75" y="44" text-anchor="middle" fill="#2563eb">API 提供端</text>
+                    </g>
+                    <g transform="translate(730, 180)" filter="url(#d6-sh)">
+                        <rect width="180" height="60" rx="8" fill="url(#d6-g)" stroke="#ea580c" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="90" y="28" text-anchor="middle" fill="#7c2d12">通用模型</text>
+                        <text class="svg-node-sub" x="90" y="44" text-anchor="middle" fill="#ea580c">传输实体对象</text>
+                    </g>
+                </svg>
+
+                <!-- DIAGRAM 7: DUAL MODE (图3-3) -->
+                <svg id="diagram-7" class="hidden" width="980" height="420" viewBox="0 0 980 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="d7-g" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#f8fafc"/>
+                        </linearGradient>
+                        <filter id="d7-sh" x="-8%" y="-8%" width="116%" height="116%">
+                            <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.04"/>
+                        </filter>
+                        <marker id="d7-arr-slate" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L7,3 z" fill="#64748b"/>
+                        </marker>
+                        <marker id="d7-arr-orange" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L7,3 z" fill="#ea580c"/>
+                        </marker>
+                        <marker id="d7-arr-green" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L7,3 z" fill="#16a34a"/>
+                        </marker>
+                    </defs>
+                    <rect class="svg-bg" width="980" height="420" fill="transparent" />
+                    <text class="svg-title" x="490" y="35" text-anchor="middle" fill="#0f172a">后端双模式服务结构图</text>
+
+                    <!-- Connections -->
+                    <path d="M 180 210 L 250 210" stroke="#64748b" stroke-width="1.5" marker-end="url(#d7-arr-slate)"/>
+                    <path d="M 390 210 Q 450 130, 520 130" stroke="#ea580c" stroke-width="1.5" marker-end="url(#d7-arr-orange)"/>
+                    <path d="M 390 210 Q 450 290, 520 290" stroke="#16a34a" stroke-width="1.5" marker-end="url(#d7-arr-green)"/>
+                    <path d="M 660 290 L 730 290" stroke="#16a34a" stroke-width="1.5" marker-end="url(#d7-arr-green)"/>
+                    <path d="M 850 290 L 880 290" stroke="#16a34a" stroke-width="1.5" marker-end="url(#d7-arr-green)"/>
+
+                    <!-- Badges -->
+                    <g transform="translate(450, 150)">
+                        <rect x="-35" y="-10" width="70" height="20" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#c2410c">Windows 开发</text>
+                    </g>
+                    <g transform="translate(450, 270)">
+                        <rect x="-35" y="-10" width="70" height="20" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#15803d">CentOS 部署</text>
+                    </g>
+
+                    <!-- Nodes -->
+                    <g transform="translate(40, 180)" filter="url(#d7-sh)">
+                        <rect width="140" height="60" rx="8" fill="url(#d7-g)" stroke="#3b82f6" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="70" y="34" text-anchor="middle" fill="#1e3a8a">控制器</text>
+                    </g>
+                    <g transform="translate(250, 180)" filter="url(#d7-sh)">
+                        <rect width="140" height="60" rx="8" fill="url(#d7-g)" stroke="#475569" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="70" y="34" text-anchor="middle" fill="#0f172a">服务接口</text>
+                    </g>
+                    <g transform="translate(520, 100)" filter="url(#d7-sh)">
+                        <rect width="140" height="60" rx="8" fill="url(#d7-g)" stroke="#ea580c" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="70" y="28" text-anchor="middle" fill="#7c2d12">模拟实现</text>
+                        <text class="svg-node-sub" x="70" y="44" text-anchor="middle" fill="#ea580c">内存数据读写</text>
+                    </g>
+                    <g transform="translate(520, 260)" filter="url(#d7-sh)">
+                        <rect width="140" height="60" rx="8" fill="url(#d7-g)" stroke="#16a34a" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="70" y="28" text-anchor="middle" fill="#15803d">真实实现</text>
+                        <text class="svg-node-sub" x="70" y="44" text-anchor="middle" fill="#16a34a">调用底层接口</text>
+                    </g>
+                    <g transform="translate(730, 265)" filter="url(#d7-sh)">
+                        <rect width="120" height="50" rx="8" fill="url(#d7-g)" stroke="#cbd5e1" stroke-width="1.2"/>
+                        <text class="svg-node-text" x="60" y="28" text-anchor="middle" fill="#3f3f46">JNA 动态加载</text>
+                    </g>
+                    <g transform="translate(880, 265)" filter="url(#d7-sh)">
+                        <rect width="90" height="50" rx="8" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="45" y="29" text-anchor="middle" fill="#4c1d95">libvirt.so</text>
+                    </g>
+                </svg>
+
+                <!-- DIAGRAM 8: DATA OBJECT RELATION (图3-4) -->
+                <svg id="diagram-8" class="hidden" width="980" height="520" viewBox="0 0 980 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <filter id="d8-shadow" x="-8%" y="-8%" width="116%" height="116%">
+                            <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.04"/>
+                        </filter>
+                        <marker id="d8-arr-purple" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L7,3 z" fill="#7e22ce"/>
+                        </marker>
+                        <marker id="d8-arr-slate" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L7,3 z" fill="#64748b"/>
+                        </marker>
+                    </defs>
+                    <rect class="svg-bg" width="980" height="520" fill="transparent" />
+                    <text class="svg-title" x="490" y="30" text-anchor="middle" fill="#0f172a">系统模块调用与数据对象关系图</text>
+                    
+                    <rect x="40" y="70" width="220" height="420" rx="16" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5" />
+                    <text class="svg-group-title" x="150" y="105" text-anchor="middle" fill="#1e3a8a">客户端</text>
+                    
+                    <rect x="310" y="70" width="340" height="420" rx="16" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5" />
+                    <text class="svg-group-title" x="480" y="105" text-anchor="middle" fill="#7c2d12">公共数据模块</text>
+                    
+                    <rect x="700" y="70" width="240" height="420" rx="16" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5" />
+                    <text class="svg-group-title" x="820" y="105" text-anchor="middle" fill="#334155">后端业务层</text>
+
+                    <path d="M 240 210 L 340 170" stroke="#3b82f6" stroke-width="2" marker-end="url(#d8-arr-slate)"/>
+                    <path d="M 620 170 L 730 170" stroke="#64748b" stroke-width="1.5" marker-end="url(#d8-arr-slate)"/>
+                    <path d="M 820 205 L 820 310" stroke="#64748b" stroke-width="1.5" marker-end="url(#d8-arr-slate)"/>
+                    <path d="M 730 340 L 620 340" stroke="#64748b" stroke-width="1.5" marker-end="url(#d8-arr-slate)"/>
+                    <path d="M 480 340 L 480 290" stroke="#7e22ce" stroke-width="1.5" marker-end="url(#d8-arr-purple)"/>
+                    <path d="M 340 260 L 240 230" stroke="#7e22ce" stroke-width="2" marker-end="url(#d8-arr-purple)"/>
+
+                    <g transform="translate(290, 190)">
+                        <rect x="-45" y="-10" width="90" height="20" rx="10" fill="#ffffff" stroke="#bfdbfe" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#1e3a8a">1. 发起请求</text>
+                    </g>
+                    <g transform="translate(675, 170)">
+                        <rect x="-45" y="-10" width="90" height="20" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#475569">2. 传入接口</text>
+                    </g>
+                    <g transform="translate(820, 260)">
+                        <rect x="-45" y="-10" width="90" height="20" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#475569">3. 业务调用</text>
+                    </g>
+                    <g transform="translate(675, 340)">
+                        <rect x="-45" y="-10" width="90" height="20" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#475569">4. 转换装配</text>
+                    </g>
+                    <g transform="translate(480, 315)">
+                        <rect x="-40" y="-10" width="80" height="20" rx="10" fill="#ffffff" stroke="#e9d5ff" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#7e22ce">5. 统一封装</text>
+                    </g>
+                    <g transform="translate(290, 245)">
+                        <rect x="-45" y="-10" width="90" height="20" rx="10" fill="#ffffff" stroke="#e9d5ff" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#7e22ce">6. 响应数据</text>
+                    </g>
+
+                    <g transform="translate(60, 175)" filter="url(#d8-shadow)">
+                        <rect width="180" height="60" rx="10" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="90" y="34" text-anchor="middle" fill="#1e3a8a">界面视图面板</text>
+                    </g>
+                    <g transform="translate(340, 140)" filter="url(#d8-shadow)">
+                        <rect width="280" height="60" rx="10" fill="#ffffff" stroke="#ea580c" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="140" y="34" text-anchor="middle" fill="#7c2d12">操作请求对象</text>
+                    </g>
+                    <g transform="translate(340, 230)" filter="url(#d8-shadow)">
+                        <rect width="280" height="60" rx="10" fill="#ffffff" stroke="#7e22ce" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="140" y="34" text-anchor="middle" fill="#4a044e">统一响应对象</text>
+                    </g>
+                    <g transform="translate(340, 340)" filter="url(#d8-shadow)">
+                        <rect width="280" height="60" rx="10" fill="#ffffff" stroke="#ea580c" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="140" y="34" text-anchor="middle" fill="#7c2d12">数据传输对象</text>
+                    </g>
+                    <g transform="translate(730, 140)" filter="url(#d8-shadow)">
+                        <rect width="180" height="65" rx="10" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="90" y="38" text-anchor="middle" fill="#0f172a">接口控制器</text>
+                    </g>
+                    <g transform="translate(730, 310)" filter="url(#d8-shadow)">
+                        <rect width="180" height="65" rx="10" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="90" y="38" text-anchor="middle" fill="#0f172a">业务服务类</text>
+                    </g>
+                </svg>
+
+                <!-- DIAGRAM 9: CLASS DIAGRAM (核心数据传输对象类图) -->
+                <svg id="diagram-9" class="hidden" width="980" height="420" viewBox="0 0 980 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <filter id="d9-sh" x="-5%" y="-5%" width="110%" height="110%">
+                            <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.04"/>
+                        </filter>
+                    </defs>
+                    <rect class="svg-bg" width="980" height="420" fill="transparent" />
+                    <text class="svg-title" x="490" y="35" text-anchor="middle" fill="#0f172a">核心数据传输对象类图</text>
+
+                    <!-- HostInfoDto Class Box -->
+                    <g transform="translate(130, 80)" filter="url(#d9-sh)">
+                        <rect width="320" height="35" rx="4" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5" />
+                        <text class="svg-node-text" x="160" y="22" text-anchor="middle" fill="#1e3a8a">HostInfoDto</text>
+                        
+                        <rect y="35" width="320" height="240" rx="4" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" />
+                        
+                        <!-- Fields (Standard Unified UML Notation) -->
+                        <text class="svg-label-text" x="15" y="60" fill="#0f172a">+ hostname : String</text>
+                        <text class="svg-label-text" x="15" y="85" fill="#0f172a">+ cpuCount : int</text>
+                        <text class="svg-label-text" x="15" y="110" fill="#0f172a">+ totalMemoryMb : long</text>
+                        <text class="svg-label-text" x="15" y="135" fill="#0f172a">+ memoryUsagePercent : int</text>
+                        <text class="svg-label-text" x="15" y="160" fill="#0f172a">+ libvirtVersion : String</text>
+                        <text class="svg-label-text" x="15" y="185" fill="#0f172a">+ qemuVersion : String</text>
+                        <text class="svg-label-text" x="15" y="210" fill="#0f172a">+ connectionUri : String</text>
+                    </g>
+
+                    <!-- VmInfoDto Class Box -->
+                    <g transform="translate(530, 80)" filter="url(#d9-sh)">
+                        <rect width="320" height="35" rx="4" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5" />
+                        <text class="svg-node-text" x="160" y="22" text-anchor="middle" fill="#1e3a8a">VmInfoDto</text>
+                        
+                        <rect y="35" width="320" height="240" rx="4" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" />
+                        
+                        <!-- Fields (Standard Unified UML Notation) -->
+                        <text class="svg-label-text" x="15" y="60" fill="#0f172a">+ name : String</text>
+                        <text class="svg-label-text" x="15" y="85" fill="#0f172a">+ uuid : String</text>
+                        <text class="svg-label-text" x="15" y="110" fill="#0f172a">+ state : String</text>
+                        <text class="svg-label-text" x="15" y="135" fill="#0f172a">+ cpuCount : int</text>
+                        <text class="svg-label-text" x="15" y="160" fill="#0f172a">+ memoryMb : int</text>
+                        <text class="svg-label-text" x="15" y="185" fill="#0f172a">+ diskPath : String</text>
+                        <text class="svg-label-text" x="15" y="210" fill="#0f172a">+ networkName : String</text>
+                        <text class="svg-label-text" x="15" y="235" fill="#0f172a">+ persistent : boolean</text>
+                    </g>
+                </svg>
+
+                <!-- DIAGRAM 10: WEB CLIENT STRUCTURE (网页端页面结构图) -->
+                <svg id="diagram-10" class="hidden" width="980" height="420" viewBox="0 0 980 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <filter id="d10-sh" x="-8%" y="-8%" width="116%" height="116%">
+                            <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#0f172a" flood-opacity="0.04"/>
+                        </filter>
+                    </defs>
+                    <rect class="svg-bg" width="980" height="420" fill="transparent" />
+                    <text class="svg-title" x="490" y="35" text-anchor="middle" fill="#0f172a">前端页面视图组件层次结构图</text>
+
+                    <!-- Horizontal Connections -->
+                    <path d="M 180 210 L 260 210" stroke="#64748b" stroke-width="1.5" />
+                    <path d="M 260 110 L 260 310" stroke="#64748b" stroke-width="1.5" />
+                    <path d="M 260 110 L 320 110" stroke="#64748b" stroke-width="1.5" />
+                    <path d="M 260 210 L 320 210" stroke="#64748b" stroke-width="1.5" />
+                    <path d="M 260 310 L 320 310" stroke="#64748b" stroke-width="1.5" />
+
+                    <!-- Sub branches for Group 1 (Overview) -->
+                    <path d="M 460 110 L 520 85" stroke="#cbd5e1" stroke-width="1.2" />
+                    <path d="M 460 110 L 520 135" stroke="#cbd5e1" stroke-width="1.2" />
+
+                    <!-- Sub branches for Group 2 (Manage) -->
+                    <path d="M 460 210 L 520 175" stroke="#cbd5e1" stroke-width="1.2" />
+                    <path d="M 460 210 L 520 210" stroke="#cbd5e1" stroke-width="1.2" />
+                    <path d="M 460 210 L 520 245" stroke="#cbd5e1" stroke-width="1.2" />
+
+                    <!-- Sub branches for Group 3 (Data) -->
+                    <path d="M 460 310 L 520 285" stroke="#cbd5e1" stroke-width="1.2" />
+                    <path d="M 460 310 L 520 335" stroke="#cbd5e1" stroke-width="1.2" />
+
+                    <!-- Nodes -->
+                    <!-- Root -->
+                    <g transform="translate(40, 180)" filter="url(#d10-sh)">
+                        <rect width="140" height="60" rx="8" fill="#eff6ff" stroke="#3b82f6" stroke-width="2"/>
+                        <text class="svg-node-text" x="70" y="34" text-anchor="middle" fill="#1e3a8a">网页端界面</text>
+                    </g>
+
+                    <!-- Group 1 -->
+                    <g transform="translate(320, 85)" filter="url(#d10-sh)">
+                        <rect width="140" height="50" rx="6" fill="#f8fafc" stroke="#475569" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="70" y="29" text-anchor="middle" fill="#0f172a">监控视图</text>
+                    </g>
+                    <!-- Group 2 -->
+                    <g transform="translate(320, 185)" filter="url(#d10-sh)">
+                        <rect width="140" height="50" rx="6" fill="#f8fafc" stroke="#475569" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="70" y="29" text-anchor="middle" fill="#0f172a">资源管理</text>
+                    </g>
+                    <!-- Group 3 -->
+                    <g transform="translate(320, 285)" filter="url(#d10-sh)">
+                        <rect width="140" height="50" rx="6" fill="#f8fafc" stroke="#475569" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="70" y="29" text-anchor="middle" fill="#0f172a">数据与保护</text>
+                    </g>
+
+                    <!-- Sub Items Group 1 -->
+                    <g transform="translate(520, 65)">
+                        <rect width="150" height="35" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-label-text" x="75" y="21" text-anchor="middle" fill="#475569">资源看板</text>
+                    </g>
+                    <g transform="translate(520, 115)">
+                        <rect width="150" height="35" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-label-text" x="75" y="21" text-anchor="middle" fill="#475569">宿主机详情</text>
+                    </g>
+
+                    <!-- Sub Items Group 2 -->
+                    <g transform="translate(520, 155)">
+                        <rect width="150" height="35" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-label-text" x="75" y="21" text-anchor="middle" fill="#475569">虚拟机生命周期操作</text>
+                    </g>
+                    <g transform="translate(520, 192)">
+                        <rect width="150" height="35" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-label-text" x="75" y="21" text-anchor="middle" fill="#475569">镜像管理</text>
+                    </g>
+                    <g transform="translate(520, 227)">
+                        <rect width="150" height="35" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-label-text" x="75" y="21" text-anchor="middle" fill="#475569">网络启停</text>
+                    </g>
+
+                    <!-- Sub Items Group 3 -->
+                    <g transform="translate(520, 265)">
+                        <rect width="150" height="35" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-label-text" x="75" y="21" text-anchor="middle" fill="#475569">存储池与卷</text>
+                    </g>
+                    <g transform="translate(520, 315)">
+                        <rect width="150" height="35" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-label-text" x="75" y="21" text-anchor="middle" fill="#475569">快照管理</text>
+                    </g>
+                </svg>
+
+                <!-- DIAGRAM 11: FLOWCHART (图4-1) -->
+                <svg id="diagram-11" class="hidden" width="980" height="840" viewBox="0 0 980 840" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="d11-g-act" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#f8fafc"/>
+                        </linearGradient>
+                        <linearGradient id="d11-g-exec" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#eff6ff"/><stop offset="100%" stop-color="#dbeafe"/>
+                        </linearGradient>
+                        <linearGradient id="d11-g-judge" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#fffbeb"/><stop offset="100%" stop-color="#fef3c7"/>
+                        </linearGradient>
+                        <linearGradient id="d11-g-loop" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#ecfdf5"/><stop offset="100%" stop-color="#d1fae5"/>
+                        </linearGradient>
+                        <linearGradient id="d11-g-danger" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#fef2f2"/><stop offset="100%" stop-color="#fee2e2"/>
+                        </linearGradient>
+                        <linearGradient id="d11-g-success" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#f0fdf4"/><stop offset="100%" stop-color="#dcfce7"/>
+                        </linearGradient>
+                        <filter id="d11-sh" x="-8%" y="-8%" width="116%" height="116%">
+                            <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#0f172a" flood-opacity="0.04"/>
+                        </filter>
+                        <marker id="d11-arr-slate" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L7,3 z" fill="#64748b"/>
+                        </marker>
+                        <marker id="d11-arr-green" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L7,3 z" fill="#16a34a"/>
+                        </marker>
+                        <marker id="d11-arr-red" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L7,3 z" fill="#ef4444"/>
+                        </marker>
+                        <marker id="d11-arr-red-dark" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L7,3 z" fill="#b91c1c"/>
+                        </marker>
+                    </defs>
+                    <rect class="svg-bg" width="980" height="840" fill="transparent" />
+                    <text class="svg-title" x="480" y="30" text-anchor="middle" fill="#0f172a">虚拟机安全关机轮询与超时降级逻辑流程图</text>
+                    
+                    <path d="M 450 80 L 450 120" stroke="#64748b" stroke-width="1.5" marker-end="url(#d11-arr-slate)"/>
+                    <path d="M 525 145 L 610 145" stroke="#64748b" stroke-width="1.5" marker-end="url(#d11-arr-slate)"/>
+                    
+                    <g transform="translate(565, 145)">
+                        <rect x="-15" y="-9" width="30" height="18" rx="9" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#64748b">否</text>
+                    </g>
+                    
+                    <path d="M 450 170 L 450 210" stroke="#2563eb" stroke-width="1.5" marker-end="url(#d11-arr-slate)"/>
+                    <g transform="translate(450, 190)">
+                        <rect x="-15" y="-9" width="30" height="18" rx="9" fill="#ffffff" stroke="#bfdbfe" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#2563eb">是</text>
+                    </g>
+                    
+                    <path d="M 450 260 L 450 290" stroke="#64748b" stroke-width="1.5" marker-end="url(#d11-arr-slate)"/>
+                    <path d="M 450 340 L 450 360" stroke="#64748b" stroke-width="1.5" marker-end="url(#d11-arr-slate)"/>
+                    <path d="M 395 385 L 260 385" stroke="#16a34a" stroke-width="1.5" marker-end="url(#d11-arr-green)"/>
+                    
+                    <g transform="translate(320, 385)">
+                        <rect x="-15" y="-9" width="30" height="18" rx="9" fill="#ffffff" stroke="#bbf7d0" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#15803d">是</text>
+                    </g>
+                    
+                    <path d="M 450 410 L 450 440" stroke="#64748b" stroke-width="1.5" marker-end="url(#d11-arr-slate)"/>
+                    <g transform="translate(450, 425)">
+                        <rect x="-15" y="-9" width="30" height="18" rx="9" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#64748b">否</text>
+                    </g>
+                    
+                    <path d="M 505 465 L 590 465" stroke="#64748b" stroke-width="1.5" marker-end="url(#d11-arr-slate)"/>
+                    <g transform="translate(545, 465)">
+                        <rect x="-15" y="-9" width="30" height="18" rx="9" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#64748b">否</text>
+                    </g>
+                    
+                    <path d="M 640 445 L 640 315 L 570 315" stroke="#10b981" stroke-width="1.5" fill="none" marker-end="url(#d11-arr-green)"/>
+                    <path d="M 450 490 L 450 520" stroke="#ef4444" stroke-width="1.5" marker-end="url(#d11-arr-red)"/>
+                    
+                    <g transform="translate(450, 505)">
+                        <rect x="-15" y="-9" width="30" height="18" rx="9" fill="#ffffff" stroke="#fca5a5" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#b91c1c">是</text>
+                    </g>
+                    
+                    <path d="M 450 570 L 450 600" stroke="#64748b" stroke-width="1.5" marker-end="url(#d11-arr-slate)"/>
+                    <path d="M 505 625 L 610 625" stroke="#64748b" stroke-width="1.5" marker-end="url(#d11-arr-slate)"/>
+                    
+                    <g transform="translate(565, 625)">
+                        <rect x="-15" y="-9" width="30" height="18" rx="9" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#64748b">否</text>
+                    </g>
+                    
+                    <path d="M 450 650 L 450 690" stroke="#dc2626" stroke-width="1.5" marker-end="url(#d11-arr-red-dark)"/>
+                    <g transform="translate(450, 670)">
+                        <rect x="-15" y="-9" width="30" height="18" rx="9" fill="#ffffff" stroke="#fca5a5" stroke-width="1"/>
+                        <text class="svg-label-text" x="0" y="4" text-anchor="middle" fill="#b91c1c">是</text>
+                    </g>
+                    
+                    <path d="M 450 740 L 450 770" stroke="#16a34a" stroke-width="1.5" marker-end="url(#d11-arr-green)"/>
+                    <path d="M 180 410 L 180 790 L 350 790" stroke="#16a34a" stroke-width="1.5" fill="none" marker-end="url(#d11-arr-green)"/>
+
+                    <!-- Nodes -->
+                    <g transform="translate(370, 40)" filter="url(#d11-sh)">
+                        <rect width="160" height="40" rx="8" fill="url(#d11-g-act)" stroke="#cbd5e1" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="80" y="24" text-anchor="middle" fill="#1e293b">点击关机</text>
+                    </g>
+                    <g transform="translate(375, 120)">
+                        <polygon points="75,0 150,25 75,50 0,25" fill="url(#d11-g-judge)" stroke="#fbbf24" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="75" y="29" text-anchor="middle" fill="#78350f">确认关机?</text>
+                    </g>
+                    <g transform="translate(610, 125)" filter="url(#d11-sh)">
+                        <rect width="120" height="40" rx="8" fill="url(#d11-g-act)" stroke="#cbd5e1" stroke-width="1.2"/>
+                        <text class="svg-node-text" x="60" y="24" text-anchor="middle" fill="#64748b">取消操作</text>
+                    </g>
+                    <g transform="translate(330, 210)" filter="url(#d11-sh)">
+                        <rect width="240" height="50" rx="8" fill="url(#d11-g-exec)" stroke="#3b82f6" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="120" y="29" text-anchor="middle" fill="#1e3a8a">发送安全关机信号</text>
+                    </g>
+                    <g transform="translate(330, 290)" filter="url(#d11-sh)">
+                        <rect width="240" height="50" rx="8" fill="url(#d11-g-loop)" stroke="#10b981" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="120" y="29" text-anchor="middle" fill="#064e3b">轮询虚拟机状态</text>
+                    </g>
+                    <g transform="translate(395, 360)">
+                        <polygon points="55,0 110,25 55,50 0,25" fill="url(#d11-g-judge)" stroke="#fbbf24" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="55" y="29" text-anchor="middle" fill="#78350f">已关闭?</text>
+                    </g>
+                    <g transform="translate(100, 365)" filter="url(#d11-sh)">
+                        <rect width="160" height="45" rx="8" fill="url(#d11-g-success)" stroke="#22c55e" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="80" y="27" text-anchor="middle" fill="#14532d">刷新控制面板</text>
+                    </g>
+                    <g transform="translate(395, 440)">
+                        <polygon points="55,0 110,25 55,50 0,25" fill="url(#d11-g-judge)" stroke="#fbbf24" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="55" y="29" text-anchor="middle" fill="#78350f">轮询超时?</text>
+                    </g>
+                    <g transform="translate(590, 445)" filter="url(#d11-sh)">
+                        <rect width="100" height="40" rx="8" fill="url(#d11-g-act)" stroke="#cbd5e1" stroke-width="1.2"/>
+                        <text class="svg-node-text" x="50" y="24" text-anchor="middle" fill="#475569">等待 1.5 秒</text>
+                    </g>
+                    <g transform="translate(340, 520)" filter="url(#d11-sh)">
+                        <rect width="220" height="50" rx="8" fill="url(#d11-g-danger)" stroke="#f87171" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="110" y="29" text-anchor="middle" fill="#7f1d1d">提示关机超时</text>
+                    </g>
+                    <g transform="translate(395, 600)">
+                        <polygon points="55,0 110,25 55,50 0,25" fill="url(#d11-g-judge)" stroke="#fbbf24" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="55" y="29" text-anchor="middle" fill="#78350f">强制断电?</text>
+                    </g>
+                    <g transform="translate(610, 605)" filter="url(#d11-sh)">
+                        <rect width="120" height="40" rx="8" fill="url(#d11-g-act)" stroke="#cbd5e1" stroke-width="1.2"/>
+                        <text class="svg-node-text" x="60" y="24" text-anchor="middle" fill="#64748b">取消操作</text>
+                    </g>
+                    <g transform="translate(330, 690)" filter="url(#d11-sh)">
+                        <rect width="240" height="50" rx="8" fill="url(#d11-g-danger)" stroke="#dc2626" stroke-width="2"/>
+                        <text class="svg-node-text" x="120" y="29" text-anchor="middle" fill="#7f1d1d">执行强制断电</text>
+                    </g>
+                    <g transform="translate(350, 770)" filter="url(#d11-sh)">
+                        <rect width="200" height="40" rx="20" fill="url(#d11-g-success)" stroke="#22c55e" stroke-width="2"/>
+                        <text class="svg-node-text" x="100" y="25" text-anchor="middle" fill="#14532d">刷新面板并记录日志</text>
+                    </g>
+                </svg>
+
+                <!-- DIAGRAM 12: WEB DASHBOARD INTERFACE (图5-1 - Dashboard看板运行界面截图模拟) -->
+                <svg id="diagram-12" class="hidden" width="980" height="600" viewBox="0 0 980 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <filter id="d12-sh" x="-2%" y="-2%" width="104%" height="104%">
+                            <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#0f172a" flood-opacity="0.06"/>
+                        </filter>
+                    </defs>
+                    <rect class="svg-bg" width="980" height="600" fill="transparent" />
+                    <text class="svg-title" x="490" y="30" text-anchor="middle" fill="#0f172a">云平台管理主控看板运行界面</text>
+
+                    <!-- Web Browser Frame -->
+                    <g transform="translate(40, 60)" filter="url(#d12-sh)">
+                        <rect width="900" height="500" rx="8" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+                        <!-- Top Browser Header Bar -->
+                        <rect width="900" height="36" rx="8" fill="#e2e8f0"/>
+                        <!-- Circles -->
+                        <circle cx="18" cy="18" r="5" fill="#ff5f56"/>
+                        <circle cx="34" cy="18" r="5" fill="#ffbd2e"/>
+                        <circle cx="50" cy="18" r="5" fill="#27c93f"/>
+                        <!-- Address Bar -->
+                        <rect x="90" y="7" width="720" height="22" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text x="100" y="22" fill="#64748b" font-size="11" font-family="monospace">http://192.168.61.130:8080/dashboard</text>
+
+                        <!-- Left Navbar -->
+                        <rect x="0" y="36" width="180" height="464" fill="#1e293b"/>
+                        <text x="20" y="70" fill="#ffffff" font-size="14" font-weight="bold">云平台管理系统</text>
+                        
+                        <!-- Nav Items -->
+                        <rect x="10" y="100" width="160" height="32" rx="6" fill="#2563eb"/>
+                        <text x="30" y="121" fill="#ffffff" font-size="12" font-weight="bold">监控看板</text>
+                        
+                        <text x="30" y="165" fill="#94a3b8" font-size="12" font-weight="bold">虚拟机管理</text>
+                        <text x="30" y="205" fill="#94a3b8" font-size="12" font-weight="bold">存储管理</text>
+                        <text x="30" y="245" fill="#94a3b8" font-size="12" font-weight="bold">网络管理</text>
+                        <text x="30" y="285" fill="#94a3b8" font-size="12" font-weight="bold">快照管理</text>
+                        <text x="30" y="325" fill="#94a3b8" font-size="12" font-weight="bold">系统日志</text>
+
+                        <!-- Content Area Header -->
+                        <rect x="180" y="36" width="720" height="50" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+                        <text x="200" y="66" fill="#0f172a" font-size="16" font-weight="bold">云平台状况大局看板</text>
+                        <text x="820" y="65" fill="#16a34a" font-size="12" font-weight="bold">连接正常</text>
+                        <circle cx="808" cy="61" r="4" fill="#16a34a"/>
+
+                        <!-- Metrics Cards (Row of 4) -->
+                        <!-- Card 1 (CPU) -->
+                        <rect x="200" y="105" width="155" height="70" rx="8" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+                        <text x="215" y="128" fill="#64748b" font-size="11">宿主机 CPU 负载</text>
+                        <text x="215" y="158" fill="#0f172a" font-size="20" font-weight="bold">18.4 %</text>
+                        <text x="310" y="156" fill="#2563eb" font-size="10">8 核可用</text>
+
+                        <!-- Card 2 (Memory) -->
+                        <rect x="375" y="105" width="155" height="70" rx="8" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+                        <text x="390" y="128" fill="#64748b" font-size="11">物理内存已用</text>
+                        <text x="390" y="158" fill="#0f172a" font-size="20" font-weight="bold">26.2 %</text>
+                        <text x="480" y="156" fill="#64748b" font-size="10">4.2 / 16G</text>
+
+                        <!-- Card 3 (VMs) -->
+                        <rect x="550" y="105" width="155" height="70" rx="8" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+                        <text x="565" y="128" fill="#64748b" font-size="11">KVM 虚拟机数量</text>
+                        <text x="565" y="158" fill="#0f172a" font-size="20" font-weight="bold">3 台</text>
+                        <text x="655" y="156" fill="#16a34a" font-size="10">1 台运行</text>
+
+                        <!-- Card 4 (Storage) -->
+                        <rect x="725" y="105" width="155" height="70" rx="8" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+                        <text x="740" y="128" fill="#64748b" font-size="11">默认存储池占用</text>
+                        <text x="740" y="158" fill="#0f172a" font-size="20" font-weight="bold">32.0 %</text>
+                        <text x="825" y="156" fill="#ea580c" font-size="10">32G / 100G</text>
+
+                        <!-- CPU Load Chart -->
+                        <rect x="200" y="195" width="680" height="120" rx="8" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+                        <text x="215" y="218" fill="#0f172a" font-size="12" font-weight="bold">物理宿主机实时 CPU 占用率历史波形图</text>
+                        <!-- Chart Line -->
+                        <path d="M 215 285 Q 260 260, 310 270 T 400 240 T 500 280 T 600 230 T 700 245 T 800 270 T 865 235" stroke="#3b82f6" stroke-width="2.5" fill="none"/>
+                        <!-- Chart Shading Area -->
+                        <path d="M 215 285 Q 260 260, 310 270 T 400 240 T 500 280 T 600 230 T 700 245 T 800 270 T 865 235 L 865 295 L 215 295 Z" fill="#3b82f6" fill-opacity="0.08"/>
+                        <!-- Baseline grid -->
+                        <line x1="215" y1="295" x2="865" y2="295" stroke="#cbd5e1" stroke-width="1"/>
+
+                        <!-- VM Table List -->
+                        <rect x="200" y="335" width="680" height="145" rx="8" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+                        <!-- Headers -->
+                        <rect x="200" y="335" width="680" height="30" rx="8" fill="#f8fafc"/>
+                        <text x="220" y="354" fill="#475569" font-size="11" font-weight="bold">虚拟机实例名称</text>
+                        <text x="380" y="354" fill="#475569" font-size="11" font-weight="bold">实例运行状态</text>
+                        <text x="500" y="354" fill="#475569" font-size="11" font-weight="bold">虚拟 CPU 数</text>
+                        <text x="600" y="354" fill="#475569" font-size="11" font-weight="bold">分配内存大小</text>
+                        <text x="730" y="354" fill="#475569" font-size="11" font-weight="bold">生命周期操作</text>
+
+                        <!-- Row 1 -->
+                        <text x="220" y="394" fill="#0f172a" font-size="12">demo-vm</text>
+                        <circle cx="386" cy="390" r="4" fill="#16a34a"/>
+                        <text x="396" y="394" fill="#16a34a" font-size="12">运行中</text>
+                        <text x="500" y="394" fill="#0f172a" font-size="12">2 核</text>
+                        <text x="600" y="394" fill="#0f172a" font-size="12">2048 MB</text>
+                        <!-- Table buttons -->
+                        <rect x="730" y="380" width="40" height="18" rx="3" fill="#ef4444"/>
+                        <text x="750" y="392" fill="#ffffff" font-size="10" text-anchor="middle">关机</text>
+                        <rect x="778" y="380" width="40" height="18" rx="3" fill="#fbbf24"/>
+                        <text x="798" y="392" fill="#78350f" font-size="10" text-anchor="middle">暂停</text>
+
+                        <!-- Divider -->
+                        <line x1="200" y1="415" x2="880" y2="415" stroke="#f1f5f9" stroke-width="1.5"/>
+
+                        <!-- Row 2 -->
+                        <text x="220" y="445" fill="#0f172a" font-size="12">ubuntu-test</text>
+                        <circle cx="386" cy="441" r="4" fill="#94a3b8"/>
+                        <text x="396" y="445" fill="#64748b" font-size="12">已关闭</text>
+                        <text x="500" y="445" fill="#0f172a" font-size="12">4 核</text>
+                        <text x="600" y="445" fill="#0f172a" font-size="12">4096 MB</text>
+                        <!-- Table buttons -->
+                        <rect x="730" y="431" width="40" height="18" rx="3" fill="#22c55e"/>
+                        <text x="750" y="443" fill="#ffffff" font-size="10" text-anchor="middle">启动</text>
+                        <rect x="778" y="431" width="40" height="18" rx="3" fill="#e2e8f0"/>
+                        <text x="798" y="443" fill="#475569" font-size="10" text-anchor="middle">删除</text>
+                    </g>
+                </svg>
+
+                <!-- DIAGRAM 13: VM CONTROLLER TIMEOUT DIALOG (图5-2 - 生命周期控制降级弹窗截图模拟) -->
+                <svg id="diagram-13" class="hidden" width="980" height="600" viewBox="0 0 980 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <filter id="d13-sh" x="-2%" y="-2%" width="104%" height="104%">
+                            <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#0f172a" flood-opacity="0.06"/>
+                        </filter>
+                    </defs>
+                    <rect class="svg-bg" width="980" height="600" fill="transparent" />
+                    <text class="svg-title" x="490" y="30" text-anchor="middle" fill="#0f172a">虚拟机安全关机超时降级控制弹窗</text>
+
+                    <!-- Background dashboard shadow structure -->
+                    <g transform="translate(40, 60)" opacity="0.4">
+                        <rect width="900" height="500" rx="8" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+                        <!-- Top Browser Header Bar -->
+                        <rect width="900" height="36" rx="8" fill="#e2e8f0"/>
+                        <!-- Left Navbar -->
+                        <rect x="0" y="36" width="180" height="464" fill="#1e293b"/>
+                        <rect x="180" y="36" width="720" height="50" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+                        <rect x="200" y="105" width="680" height="360" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                    </g>
+
+                    <!-- Semi-transparent Overlay Mask -->
+                    <rect x="40" y="96" width="900" height="464" fill="#0f172a" fill-opacity="0.4" rx="4"/>
+
+                    <!-- Modal Dialog Card -->
+                    <g transform="translate(290, 180)" filter="url(#d13-sh)">
+                        <rect width="400" height="240" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <!-- Dialog Title -->
+                        <text x="24" y="38" fill="#0f172a" font-size="15" font-weight="bold">虚拟机安全关机响应超时</text>
+                        <!-- Close button symbol (X) -->
+                        <path d="M 360 26 L 372 38 M 372 26 L 360 38" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/>
+
+                        <!-- Dialog Content body -->
+                        <text x="24" y="78" fill="#475569" font-size="12">安全关机指令已向虚拟机 demo-vm 发送。</text>
+                        <text x="24" y="98" fill="#475569" font-size="12">系统已持续轮询虚拟机状态 15 次，目前尚未响应关闭。</text>
+                        
+                        <!-- Red Warning Callout Box -->
+                        <rect x="24" y="120" width="352" height="55" rx="6" fill="#fef2f2" stroke="#fca5a5" stroke-width="1"/>
+                        <text x="40" y="140" fill="#991b1b" font-size="11" font-weight="bold">提示：该虚拟机可能没有安装关机服务。</text>
+                        <text x="40" y="156" fill="#991b1b" font-size="11">您可以继续等待其响应，或者在此执行强制断电释放资源。</text>
+
+                        <!-- Buttons at footer -->
+                        <rect x="180" y="195" width="80" height="28" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text x="220" y="213" fill="#475569" font-size="11" font-weight="bold" text-anchor="middle">继续等待</text>
+
+                        <rect x="276" y="195" width="100" height="28" rx="6" fill="#dc2626"/>
+                        <text x="326" y="213" fill="#ffffff" font-size="11" font-weight="bold" text-anchor="middle">确认强制断电</text>
+                    </g>
+                </svg>
+
+                <!-- DIAGRAM 14: TEAM WORK DIVISION (图6-1) -->
+                <svg id="diagram-14" class="hidden" width="980" height="420" viewBox="0 0 980 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="d14-g" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#f8fafc"/>
+                        </linearGradient>
+                        <filter id="d14-sh" x="-8%" y="-8%" width="116%" height="116%">
+                            <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.04"/>
+                        </filter>
+                        <marker id="d14-arr-slate" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L7,3 z" fill="#64748b"/>
+                        </marker>
+                    </defs>
+                    <rect class="svg-bg" width="980" height="420" fill="transparent" />
+                    <text class="svg-title" x="490" y="35" text-anchor="middle" fill="#0f172a">课程设计小组成员分工结构图</text>
+
+                    <!-- Tree Connectors -->
+                    <path d="M 490 120 L 490 150" stroke="#64748b" stroke-width="1.5" />
+                    <path d="M 260 150 L 720 150" stroke="#64748b" stroke-width="1.5" />
+                    <path d="M 260 150 L 260 180" stroke="#64748b" stroke-width="1.5" marker-end="url(#d14-arr-slate)"/>
+                    <path d="M 720 150 L 720 180" stroke="#64748b" stroke-width="1.5" marker-end="url(#d14-arr-slate)"/>
+
+                    <!-- Member A Sub-branches -->
+                    <path d="M 260 230 L 260 250" stroke="#cbd5e1" stroke-width="1" />
+                    <path d="M 120 250 L 400 250" stroke="#cbd5e1" stroke-width="1" />
+                    <path d="M 120 250 L 120 270" stroke="#cbd5e1" stroke-width="1" marker-end="url(#d14-arr-slate)"/>
+                    <path d="M 260 250 L 260 270" stroke="#cbd5e1" stroke-width="1" marker-end="url(#d14-arr-slate)"/>
+                    <path d="M 400 250 L 400 270" stroke="#cbd5e1" stroke-width="1" marker-end="url(#d14-arr-slate)"/>
+
+                    <!-- Member B Sub-branches -->
+                    <path d="M 720 230 L 720 250" stroke="#cbd5e1" stroke-width="1" />
+                    <path d="M 580 250 L 860 250" stroke="#cbd5e1" stroke-width="1" />
+                    <path d="M 580 250 L 580 270" stroke="#cbd5e1" stroke-width="1" marker-end="url(#d14-arr-slate)"/>
+                    <path d="M 720 250 L 720 270" stroke="#cbd5e1" stroke-width="1" marker-end="url(#d14-arr-slate)"/>
+                    <path d="M 860 250 L 860 270" stroke="#cbd5e1" stroke-width="1" marker-end="url(#d14-arr-slate)"/>
+
+                    <!-- Nodes -->
+                    <g transform="translate(390, 70)" filter="url(#d14-sh)">
+                        <rect width="200" height="50" rx="25" fill="#eff6ff" stroke="#3b82f6" stroke-width="2"/>
+                        <text class="svg-node-text" x="100" y="29" text-anchor="middle" fill="#1e3a8a">课程设计小组</text>
+                    </g>
+                    <g transform="translate(160, 180)" filter="url(#d14-sh)">
+                        <rect width="200" height="50" rx="8" fill="url(#d14-g)" stroke="#475569" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="100" y="24" text-anchor="middle" fill="#0f172a">成员 A</text>
+                        <text class="svg-node-sub" x="100" y="38" text-anchor="middle" fill="#475569">负责：后端研发与虚拟化环境</text>
+                    </g>
+                    <g transform="translate(620, 180)" filter="url(#d14-sh)">
+                        <rect width="200" height="50" rx="8" fill="url(#d14-g)" stroke="#475569" stroke-width="1.5"/>
+                        <text class="svg-node-text" x="100" y="24" text-anchor="middle" fill="#0f172a">成员 B</text>
+                        <text class="svg-node-sub" x="100" y="38" text-anchor="middle" fill="#475569">负责：前端开发与报告排版</text>
+                    </g>
+
+                    <!-- Member A Tasks -->
+                    <g transform="translate(50, 270)" filter="url(#d14-sh)">
+                        <rect width="140" height="40" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-node-text" x="70" y="24" text-anchor="middle" fill="#475569" font-size="11">接口与数据结构设计</text>
+                    </g>
+                    <g transform="translate(200, 270)" filter="url(#d14-sh)">
+                        <rect width="120" height="40" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-node-text" x="60" y="24" text-anchor="middle" fill="#475569" font-size="11">双模式服务与 JNA</text>
+                    </g>
+                    <g transform="translate(330, 270)" filter="url(#d14-sh)">
+                        <rect width="140" height="40" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-node-text" x="70" y="24" text-anchor="middle" fill="#475569" font-size="11">CentOS 部署与测试</text>
+                    </g>
+
+                    <!-- Member B Tasks -->
+                    <g transform="translate(510, 270)" filter="url(#d14-sh)">
+                        <rect width="140" height="40" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-node-text" x="70" y="24" text-anchor="middle" fill="#475569" font-size="11">Web 界面及接口封装</text>
+                    </g>
+                    <g transform="translate(660, 270)" filter="url(#d14-sh)">
+                        <rect width="120" height="40" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-node-text" x="60" y="24" text-anchor="middle" fill="#475569" font-size="11">关机轮询与日志</text>
+                    </g>
+                    <g transform="translate(790, 270)" filter="url(#d14-sh)">
+                        <rect width="140" height="40" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+                        <text class="svg-node-text" x="70" y="24" text-anchor="middle" fill="#475569" font-size="11">运行截图与文档撰写</text>
+                    </g>
+                </svg>
+
+                <!-- DIAGRAM 15: GANTT CHART (图6-2) -->
+                <svg id="diagram-15" class="hidden" width="980" height="420" viewBox="0 0 980 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="d15-g-a" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#60a5fa"/>
+                        </linearGradient>
+                        <linearGradient id="d15-g-b" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stop-color="#ea580c"/><stop offset="100%" stop-color="#f97316"/>
+                        </linearGradient>
+                        <filter id="d15-sh" x="-2%" y="-5%" width="104%" height="110%">
+                            <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0f172a" flood-opacity="0.04"/>
+                        </filter>
+                    </defs>
+                    <rect class="svg-bg" width="980" height="420" fill="transparent" />
+                    <text class="svg-title" x="490" y="35" text-anchor="middle" fill="#0f172a">课程设计开发实施进度图</text>
+
+                    <!-- Calendar Header (Grid representation) -->
+                    <g opacity="0.4">
+                        <line x1="260" y1="80" x2="260" y2="380" stroke="#94a3b8" stroke-dasharray="3,3"/>
+                        <line x1="370" y1="80" x2="370" y2="380" stroke="#94a3b8" stroke-dasharray="3,3"/>
+                        <line x1="480" y1="80" x2="480" y2="380" stroke="#94a3b8" stroke-dasharray="3,3"/>
+                        <line x1="590" y1="80" x2="590" y2="380" stroke="#94a3b8" stroke-dasharray="3,3"/>
+                        <line x1="700" y1="80" x2="700" y2="380" stroke="#94a3b8" stroke-dasharray="3,3"/>
+                        <line x1="810" y1="80" x2="810" y2="380" stroke="#94a3b8" stroke-dasharray="3,3"/>
+                        <line x1="920" y1="80" x2="920" y2="380" stroke="#94a3b8" stroke-dasharray="3,3"/>
+                    </g>
+
+                    <!-- Horizontal dividers -->
+                    <line x1="40" y1="110" x2="940" y2="110" stroke="#e2e8f0" stroke-width="1.5"/>
+                    <line x1="40" y1="240" x2="940" y2="240" stroke="#cbd5e1" stroke-width="1.5"/>
+                    <line x1="40" y1="370" x2="940" y2="370" stroke="#e2e8f0" stroke-width="1.5"/>
+
+                    <!-- Date labels -->
+                    <text class="svg-label-text" x="260" y="100" text-anchor="middle" fill="#64748b">06-01</text>
+                    <text class="svg-label-text" x="370" y="100" text-anchor="middle" fill="#64748b">06-04</text>
+                    <text class="svg-label-text" x="480" y="100" text-anchor="middle" fill="#64748b">06-08</text>
+                    <text class="svg-label-text" x="590" y="100" text-anchor="middle" fill="#64748b">06-11</text>
+                    <text class="svg-label-text" x="700" y="100" text-anchor="middle" fill="#64748b">06-14</text>
+                    <text class="svg-label-text" x="810" y="100" text-anchor="middle" fill="#64748b">06-17</text>
+                    <text class="svg-label-text" x="920" y="100" text-anchor="middle" fill="#64748b">06-20</text>
+
+                    <!-- Left axis titles -->
+                    <text class="svg-node-text" x="50" y="180" fill="#1e3a8a">成员 A</text>
+                    <text class="svg-node-sub" x="50" y="198" fill="#64748b">开发与部署</text>
+
+                    <text class="svg-node-text" x="50" y="310" fill="#7c2d12">成员 B</text>
+                    <text class="svg-node-sub" x="50" y="328" fill="#64748b">视图与文档</text>
+
+                    <!-- MEMBER A BARS (Scale: 1 day = 36.6px, starting from X=260 as 6-01) -->
+                    <!-- Task 1: 接口设计 (06-01 to 06-04, 3 days) -> W = 110px -->
+                    <g transform="translate(260, 130)" filter="url(#d15-sh)">
+                        <rect width="110" height="35" rx="6" fill="url(#d15-g-a)"/>
+                        <text class="svg-label-text" x="55" y="21" text-anchor="middle" fill="#ffffff">接口设计</text>
+                    </g>
+                    <!-- Task 2: 双模式开发 (06-04 to 06-08, 4 days) -> W = 146px -->
+                    <g transform="translate(370, 175)" filter="url(#d15-sh)">
+                        <rect width="146" height="35" rx="6" fill="url(#d15-g-a)"/>
+                        <text class="svg-label-text" x="73" y="21" text-anchor="middle" fill="#ffffff">双模式实现</text>
+                    </g>
+                    <!-- Task 3: JNA与CentOS部署 (06-08 to 06-12, 4 days) -> W = 146px -->
+                    <g transform="translate(516, 130)" filter="url(#d15-sh)">
+                        <rect width="146" height="35" rx="6" fill="url(#d15-g-a)"/>
+                        <text class="svg-label-text" x="73" y="21" text-anchor="middle" fill="#ffffff">JNA 与 CentOS 部署</text>
+                    </g>
+                    <!-- Task 4: 接口排查 (06-12 to 06-15, 3 days) -> W = 110px -->
+                    <g transform="translate(662, 175)" filter="url(#d15-sh)">
+                        <rect width="110" height="35" rx="6" fill="url(#d15-g-a)"/>
+                        <text class="svg-label-text" x="55" y="21" text-anchor="middle" fill="#ffffff">排查故障</text>
+                    </g>
+
+                    <!-- MEMBER B BARS -->
+                    <!-- Task 1: 页面开发 (06-03 to 06-08, 5 days) -> W = 183px -->
+                    <g transform="translate(333, 260)" filter="url(#d15-sh)">
+                        <rect width="183" height="35" rx="6" fill="url(#d15-g-b)"/>
+                        <text class="svg-label-text" x="91" y="21" text-anchor="middle" fill="#ffffff">页面开发及封装</text>
+                    </g>
+                    <!-- Task 2: 轮询与日志 (06-08 to 06-11, 3 days) -> W = 110px -->
+                    <g transform="translate(516, 305)" filter="url(#d15-sh)">
+                        <rect width="110" height="35" rx="6" fill="url(#d15-g-b)"/>
+                        <text class="svg-label-text" x="55" y="21" text-anchor="middle" fill="#ffffff">关机轮询与日志</text>
+                    </g>
+                    <!-- Task 3: 看板与联调 (06-11 to 06-14, 3 days) -> W = 110px -->
+                    <g transform="translate(626, 260)" filter="url(#d15-sh)">
+                        <rect width="110" height="35" rx="6" fill="url(#d15-g-b)"/>
+                        <text class="svg-label-text" x="55" y="21" text-anchor="middle" fill="#ffffff">看板与系统联调</text>
+                    </g>
+                    <!-- Task 4: 测试与报告 (06-14 to 06-18, 4 days) -> W = 146px -->
+                    <g transform="translate(736, 305)" filter="url(#d15-sh)">
+                        <rect width="146" height="35" rx="6" fill="url(#d15-g-b)"/>
+                        <text class="svg-label-text" x="73" y="21" text-anchor="middle" fill="#ffffff">测试整理与撰写报告</text>
+                    </g>
+                </svg>
+
+            </div>
+            
+            <div class="screenshot-helper" id="helper-text">
+                提示：当前图表比例已专门为 Word 及 LaTeX 论文级排版调优。支持一键隐藏所有界面面板以获得纯净插图。
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentDiagram = 0;
+        let currentTheme = 'default';
+
+        function switchDiagram(index) {
+            document.getElementById(`diagram-${currentDiagram}`).classList.add('hidden');
+            document.getElementById(`nav-${currentDiagram}`).classList.remove('active');
+            
+            currentDiagram = index;
+            
+            document.getElementById(`diagram-${currentDiagram}`).classList.remove('hidden');
+            document.getElementById(`nav-${currentDiagram}`).classList.add('active');
+        }
+
+        function setTheme(theme) {
+            document.body.removeAttribute('data-theme');
+            document.getElementById('navbar').classList.remove('hidden');
+            document.getElementById('sidebar').classList.remove('hidden');
+            document.getElementById('canvas-card').style.border = '1px solid var(--border-color)';
+            document.getElementById('canvas-card').style.padding = '2.5rem';
+            document.body.classList.remove('screenshot-mode-active');
+
+            // Reset buttons
+            document.getElementById('theme-default').classList.remove('btn-active', 'btn-primary');
+            document.getElementById('theme-dark').classList.remove('btn-active', 'btn-primary');
+            document.getElementById('theme-grid').classList.remove('btn-active', 'btn-primary');
+            document.getElementById('theme-screenshot').classList.remove('btn-active', 'btn-primary');
+
+            currentTheme = theme;
+
+            if (theme === 'dark') {
+                document.body.setAttribute('data-theme', 'dark');
+                document.getElementById('theme-dark').classList.add('btn-active');
+                updateSVGBackgrounds('#0b0f19', '#ffffff', '#1e293b');
+            } else if (theme === 'screenshot') {
+                document.body.setAttribute('data-theme', 'screenshot');
+                document.getElementById('theme-screenshot').classList.add('btn-primary');
+                
+                // Hide panels for clean screenshot
+                document.getElementById('navbar').classList.add('hidden');
+                document.getElementById('sidebar').classList.add('hidden');
+                document.getElementById('canvas-card').style.border = 'none';
+                document.getElementById('canvas-card').style.padding = '0';
+                document.body.classList.add('screenshot-mode-active');
+                
+                updateSVGBackgrounds('#ffffff', '#000000', '#e2e8f0');
+            } else if (theme === 'screenshot-grid') {
+                document.body.setAttribute('data-theme', 'screenshot-grid');
+                document.getElementById('theme-grid').classList.add('btn-primary');
+                
+                document.getElementById('navbar').classList.add('hidden');
+                document.getElementById('sidebar').classList.add('hidden');
+                document.getElementById('canvas-card').style.border = 'none';
+                document.getElementById('canvas-card').style.padding = '0';
+                document.body.classList.add('screenshot-mode-active');
+                
+                updateSVGBackgrounds('#ffffff', '#000000', '#e2e8f0');
+            } else {
+                document.getElementById('theme-default').classList.add('btn-active');
+                updateSVGBackgrounds('transparent', '#0f172a', '#ffffff');
+            }
+        }
+
+        function updateSVGBackgrounds(bgColor, strokeColor, badgeBorderColor) {
+            const bgs = document.querySelectorAll('.svg-bg');
+            bgs.forEach(bg => {
+                bg.setAttribute('fill', bgColor);
+            });
+            const titles = document.querySelectorAll('.svg-title');
+            titles.forEach(title => {
+                title.setAttribute('fill', strokeColor);
+            });
+            const labels = document.querySelectorAll('.label-bg');
+            labels.forEach(lbl => {
+                lbl.setAttribute('fill', bgColor === 'transparent' ? '#ffffff' : bgColor);
+                lbl.setAttribute('stroke', badgeBorderColor);
+            });
+        }
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape' && (currentTheme === 'screenshot' || currentTheme === 'screenshot-grid')) {
+                setTheme('default');
+            }
+        });
+    </script>
+</body>
+</html>

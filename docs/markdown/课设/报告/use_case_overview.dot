@@ -1,0 +1,27 @@
+graph use_case_overview {
+    layout="neato";
+    graph [bgcolor="white", size="7,4", ratio=fill,
+           fontname="Segoe UI,Arial,Microsoft YaHei,sans-serif", fontsize=14,
+           label="系统管理员整体用例图", labelloc=t];
+    node [shape=ellipse, style=filled, fillcolor="#F8FAFC", color="#CBD5E1", fontcolor="#1E293B",
+          fontname="Segoe UI,Arial,Microsoft YaHei,sans-serif", fontsize=11, penwidth=1.5,
+          margin="0.12,0.08"];
+    edge [fontname="Segoe UI,Arial,Microsoft YaHei,sans-serif", fontsize=10, color="#64748B", penwidth=1.3];
+
+    admin [shape=box, style="filled,rounded", pos="0,1.5!", label="系统管理员",
+           fillcolor="#EFF6FF", color="#3B82F6", fontcolor="#1E3A8A"];
+
+    host [pos="2.4,2.7!", label="查看宿主机"];
+    vm [pos="4.8,2.45!", label="管理虚拟机", fillcolor="#EFF6FF", color="#3B82F6", fontcolor="#1E3A8A"];
+    image [pos="2.7,1.65!", label="管理镜像"];
+    network [pos="4.8,1.25!", label="管理网络"];
+    storage [pos="2.35,0.35!", label="查看存储"];
+    snapshot [pos="4.65,0.1!", label="管理快照"];
+
+    admin -- host;
+    admin -- vm;
+    admin -- image;
+    admin -- network;
+    admin -- storage;
+    admin -- snapshot;
+}
