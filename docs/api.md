@@ -29,13 +29,14 @@
 | `POST` | `/vms` | 创建虚拟机 | `VmInfoDto` |
 | `POST` | `/vms/{name}/start` | 启动虚拟机 | `Void` |
 | `POST` | `/vms/{name}/shutdown` | 请求关机 | `Void` |
+| `POST` | `/vms/{name}/reboot` | 重启虚拟机 | `Void` |
 | `POST` | `/vms/{name}/destroy` | 强制断电 | `Void` |
 | `POST` | `/vms/{name}/suspend` | 暂停虚拟机 | `Void` |
 | `POST` | `/vms/{name}/resume` | 恢复虚拟机 | `Void` |
-| `DELETE` | `/vms/{name}` | 删除虚拟机（含磁盘） | `Void` |
+| `DELETE` | `/vms/{name}` | 删除虚拟机及关联磁盘映像 | `Void` |
 | `WS` | `/vnc-proxy/{vmName}` | 虚拟机控制台 WebSocket 代理流通道 | `BinaryStream` |
 
-> 提示：`VmInfoDto` 增加了 `vncPort` 字段（虚拟机运行状态下的物理 VNC 端口），`HostInfoDto` 增加了 `cpuSockets`、`cpuCores`、`cpuThreads`、`numaNodes`、`osName`、`osKernel`、`uptime`、`cpuUsagePercent` 与 `systemLoadAverage` 字段。
+> 提示：VmInfoDto 增加了 vncPort 字段，代表虚拟机运行状态下的物理 VNC 端口；HostInfoDto 增加了 cpuSockets、cpuCores、cpuThreads、numaNodes、osName、osKernel、uptime、cpuUsagePercent 与 systemLoadAverage 字段。
 
 ### 创建虚拟机请求体 `CreateVmRequest`
 

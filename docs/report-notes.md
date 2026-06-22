@@ -24,7 +24,7 @@
 | `LibvirtNetworkService` | libvirt 模式网络服务 |
 | `LibvirtSnapshotService` | libvirt 模式快照服务 |
 | `LibvirtStorageService` | libvirt 模式存储服务 |
-| `LibvirtResourceFallbackServices` | libvirt 模式镜像服务（扫描 /var/lib/libvirt/images） |
+| `LibvirtResourceFallbackServices` | libvirt 模式镜像服务，扫描并监控 /var/lib/libvirt/images 目录 |
 | `VncProxyWebSocketHandler` | WebSocket 处理器，在 VNC 物理端口与网页 WebSocket 连接之间实现双向二进制字节流数据中转 |
 | `WebSocketConfig` | 启用 WebSocket 并配置 `/api/vnc-proxy/{vmName}` 路由映射 |
 
@@ -56,7 +56,7 @@
 | `stores/backendStore.ts` | 宿主机连接状态 Pinia Store |
 | `stores/logStore.ts` | 操作日志 Pinia 状态库，最多存储 200 条日志 |
 | `layouts/MainLayout.vue` | 页面主布局，提供侧边栏导航、顶部状态与底部日志面板 |
-| `views/DashboardView.vue` | 控制面板视图，包含 4 个统计卡片与 3 个 ECharts 图表 |
+| `views/DashboardView.vue` | 控制面板视图，包含 6 个统计卡片与 6 个 ECharts 图表，涵盖物理性能、网络速率走势、内存分布、存储分配等维度 |
 | `views/VmView.vue` | 虚拟机管理页面，包含状态联动按钮、创建表单与关机轮询进度对话框 |
 | `views/ImageView.vue` | 镜像管理 |
 | `views/NetworkView.vue` | 网络管理 |
@@ -87,7 +87,7 @@
 
 `mock` 配置使用内存数据完成 Windows 调试。`libvirt` 配置通过 JNA 加载 `/usr/lib64/libvirt.so.0` 并连接 `qemu:///system`。
 
-当前真实 libvirt 已支持宿主机信息（含物理插槽数、每插槽核心数、超线程数、操作系统内核与自启动运行时间等精细化硬件指标）、虚拟机列表、虚拟机详情（已集成 VNC 端口提取与网页端 WebSocket 双向流转发以实现免插件控制台操控）、创建虚拟机、删除虚拟机、启动、关机、强制关闭、暂停、恢复、网络列表、网络启停与创建注销虚拟局域网、存储池列表、存储卷列表、快照列表以及快照创建、恢复与删除接口。镜像列表在 libvirt 模式下扫描 `/var/lib/libvirt/images`。
+当前真实 libvirt 已支持宿主机硬件指标、系统负载与网络流量实时吞吐折线图（扩容至 30 个采样点）、虚拟机列表与详情查询（集成免插件网页端 VNC 远程操控与 WebSocket 二进制流中转）、虚拟机创建删除、虚拟机控制（包含启动、关机、重启、强制断电、暂停与恢复，以及多磁盘 XML 配置解析与总大小计算）、虚拟局域网络管理（包含网络定义注销、状态切换、子网掩码解析以及前端关联虚拟机台数统计）、存储池与磁盘卷管理、快照管理（包含快照创建、删除、回滚以及当前活跃快照的高亮）、系统镜像目录管理（支持实际物理块占用检测与文件存在状态指示灯）。镜像列表在 libvirt 模式下自动扫描物理目录获取。
 
 快照测试说明：使用 raw 格式磁盘的虚拟机，受底层存储驱动限制不支持快照功能，调用相关接口时返回格式不支持的错误。目前已在 CentOS 环境中部署 qcow2 格式磁盘的虚拟机，验证了快照创建、查询、恢复与删除操作。
 

@@ -4,39 +4,39 @@
 
 系统采用 C/S 架构。后端提供 REST API，前端支持 Swing 桌面客户端与 Vue 3 Web 客户端。客户端通过 HTTP 交互，不直接依赖 libvirt。
 
-### 开发阶段（Windows mock 模式）
+### 开发阶段：Windows mock 模式
 
 ```text
 Windows
-  Web 客户端 / Swing 客户端
+  Web 客户端与 Swing 客户端
       ↓ HTTP JSON
-  Spring Boot 后端 mock profile
+  Spring Boot 后端 mock 运行模式
       ↓
   ConcurrentHashMap 内存数据
 ```
 
-### 部署阶段（CentOS libvirt 模式）
+### 部署阶段：CentOS libvirt 模式
 
 ```text
-Windows 浏览器或客户端
+Windows 浏览器与客户端
       ↓ HTTP JSON
-CentOS Spring Boot 后端 libvirt profile
+  CentOS Spring Boot 后端 libvirt 运行模式
       ↓ JNA
-/usr/lib64/libvirt.so.0
+  /usr/lib64/libvirt.so.0
       ↓
-qemu:///system
+  qemu:///system
       ↓
-KVM / QEMU
+  KVM / QEMU
 ```
 
-### 网页直连控制台数据流（VNC 代理通道）
+### 网页直连控制台数据流
 
 ```text
-Windows 浏览器 (noVNC Canvas)
+Windows 浏览器 noVNC
       ↓  WebSocket 协议
-CentOS Spring Boot 后端 (VncProxyWebSocketHandler)
-      ↓  TCP 套接字 (localhost:vncPort)
-CentOS 虚拟机真实的 VNC 物理端口 (RFB)
+  CentOS Spring Boot 后端 VncProxyWebSocketHandler
+      ↓  TCP 套接字
+  CentOS 虚拟机真实的 VNC 物理端口
 ```
 
 ## Profile 隔离
@@ -102,14 +102,19 @@ private <T> T withDomain(String name, DomainCallback<T> callback) {
 
 ### client-swing
 
-Java Swing 桌面客户端，1180×760 窗口，使用 FlatLaf 支持明暗主题切换（包含 FlatLightLaf 与 FlatDarculaLaf），采用 MigLayout 布局、JSplitPane 导航与 CardLayout 页面切换。所有 HTTP 调用通过基于 SwingWorker 封装的 `SwingTasks.run()` 在后台线程执行，结果在 EDT 上进行回调。
+Java Swing 桌面客户端，1180×760 窗口，使用 FlatLaf 支持明暗主题切换，采用 MigLayout 布局、JSplitPane 导航与 CardLayout 页面切换。所有 HTTP 调用通过基于 SwingWorker 封装的 `SwingTasks.run()` 在后台线程执行，结果在 EDT 上进行回调。
 
 ### client-web
 
-Vue 3 + TypeScript Web 客户端。暖色大地色调设计（主色 `#ca6a1f`，背景 `#f8f6f2`），使用 Fira Sans / Fira Code 字体。主要特性：
+Vue 3 + TypeScript Web 客户端。暖色大地色调设计，主色为 `#ca6a1f`，背景为 `#f8f6f2`，使用 Fira Sans 与 Fira Code 字体。主要特性：
 
 - **VNC 网页直连控制台**：在虚拟机实例处于运行状态下，支持一键拉起独立的控制台路由页面，借由 noVNC 将前端操作映射为二进制事件流，通过后端代理通道直接对虚拟主机的命令行或图形桌面进行完全的键鼠操控。
-- **静态资源 Fallback 重定向**：为解决单页应用的 History 路由在直接输入 URL 或刷新页面时导致后端 404 错误的问题，在后端的 WebConfig 中重定向了所有属于前端的路由路径（包括 `/vnc/**` 通配路径），统一将其 forward 转发至 `/index.html`，完美维持了浏览器的状态不丢失。
+- **静态资源 Fallback 重定向**：为解决单页应用的 History 路由在直接输入 URL 或刷新页面时导致后端 404 错误的问题，在后端的 WebConfig 中重定向了所有属于前端的路由路径，包括 `/vnc/**` 通配路径，统一将其 forward 转发至 `/index.html`，完美维持了浏览器的状态不丢失。
+- **物理性能与网络吞吐监控**：仪表盘支持展示宿主机物理负载及网络吞吐实时走势折线图，提供高精度网络瞬时速率展示，且历史指标采样周期扩展至 30 个点。
+- **多磁盘与重启操作**：支持虚拟机实例一键重启操作并与操作日志对接，同时支持虚拟机多磁盘 XML 递归配置解析，可正确计算并显示挂载的所有磁盘映像路径及累计大小。
+- **网络子网掩码与关联虚拟机**：支持在网络管理页面解析显示子网掩码参数，且由前端自动动态统计并展示各虚拟局域网络下挂载的虚拟机总数。
+- **镜像实际占用与完好性校验**：区分基础系统镜像的最大分配容量与物理占用空间，并提供物理路径完好性状态指示灯。
+- **快照活跃分支高亮**：自动识别虚拟机当前活跃的快照分支并高亮标记，且翻译快照生成时的虚拟机状态。
 - **Vite 代理**：开发时通过 Vite 代理转发 `/api` 请求到后端。
 
 两套客户端均通过统一的 HTTP API 与后端 Spring Boot 交互，不直接依赖 libvirt 动态链接库或执行任何 virsh 命令行程序。

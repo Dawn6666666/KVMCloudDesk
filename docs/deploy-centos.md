@@ -38,7 +38,7 @@ http://192.168.61.130:8080
 - 查询虚拟机列表与详情
 - 虚拟机创建：支持基于系统镜像或光盘定义虚拟机。
 - 虚拟机删除：支持清除虚拟机定义并同步删除关联的磁盘文件。
-- 虚拟机控制操作：包含启动、关机、强制断电、暂停与恢复。
+- 虚拟机控制操作：包含启动、关机、重启、强制断电、暂停与恢复。
 - 虚拟网络查询与状态切换：支持启动与停止默认网络。
 - 存储池查询与存储卷明细查看
 - 快照生命周期管理：支持快照创建、列表查询、恢复与删除。
@@ -95,7 +95,7 @@ http://192.168.61.130:8080
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 
-            # 开启 WebSocket 双向流协议升级支持（用于 VNC 网页直连）
+            # 开启 WebSocket 双向流协议升级支持，用于 VNC 网页直连
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection "upgrade";

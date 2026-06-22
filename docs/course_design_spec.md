@@ -11,12 +11,12 @@
 ### 1. 业务架构与双模式运行机制
 为解决 Windows 开发环境没有 KVM 虚拟化驱动的问题，系统设计了双 Profile 条件装配机制，分为 Mock 开发测试模式与 Libvirt 真实物理部署模式：
 
-- **Mock 开发测试模式（Windows 宿主机）**：
-  - **运行机理**：通过 Spring Boot 的配置文件激活 `mock` 配置。Spring 会将实现了相同服务接口的模拟服务类（如 `MockVmService`）注入到控制器中。
+- **Mock 开发测试模式：Windows 运行**：
+  - **运行机理**：通过 Spring Boot 的配置文件激活 `mock` 配置。Spring 会将实现了相同服务接口的模拟服务类，例如 `MockVmService`，注入到控制器中。
   - **数据存储**：所有虚拟机、网络、快照等数据均维护在后端的 `ConcurrentHashMap` 内存数据仓库中。客户端通过 HTTP 接口访问，能流畅进行界面逻辑联调，不加载任何 Linux 动态库。
-- **Libvirt 真实物理部署模式（CentOS 物理机/虚拟机）**：
+- **Libvirt 真实物理部署模式：CentOS 部署**：
   - **运行机理**：通过激活 `libvirt` 配置文件启动后端。此时，系统自动装配真实的 `Libvirt` 服务类。
-  - **底层对接**：通过 JNA 加载本地的 `/usr/lib64/libvirt.so.0` 动态链接库，建立与本地 KVM 虚拟机管理器（`qemu:///system`）的通信管道，直接管控物理硬件资源。
+  - **底层对接**：通过 JNA 加载本地的 `/usr/lib64/libvirt.so.0` 动态链接库，建立与本地 KVM 虚拟机管理器 qemu:///system 的通信管道，直接管控物理硬件资源。
 
 ### 2. 核心控制流与数据流图
 以下是系统在真实部署环境下的数据调用链路：
@@ -29,7 +29,7 @@
              \  HTTP JSON (REST API)      /  HTTP JSON
               v                          v
 +------------------------------------------------------+
-|            Spring Boot 核心业务层（后端）            |
+|              Spring Boot 后端核心业务层              |
 |     - 统一接收 API 请求，进行入参安全校验            |
 |     - 调用 XML 模板引擎构建虚拟机定义描述            |
 +------------------------------------------------------+
@@ -45,7 +45,7 @@
                            |  原生 C 函数指针调用
                            v
 +------------------------------------------------------+
-|             Libvirt 系统守护进程 (KVM/QEMU)          |
+|             Libvirt 虚拟化守护进程                   |
 |     - 接收底层的 libvirt API 控制指令                |
 |     - 调配 Linux 内存、CPU 及 qcow2 磁盘映像文件     |
 +------------------------------------------------------+
@@ -60,7 +60,7 @@
 
 #### 核心 C 函数映射清单：
 - **宿主机监控**：`virConnectGetHostname`、`virConnectGetLibVersion`、`virNodeGetInfo`、`virNodeGetFreeMemory`
-- **虚拟机全生命周期**：`virDomainDefineXML`（定义）、`virDomainCreate`（启动）、`virDomainShutdown`（关机）、`virDomainDestroy`（强制断电）、`virDomainSuspend`（暂停）、`virDomainResume`（恢复）、`virDomainUndefine`（删除定义）
+- **虚拟机全生命周期**：`virDomainDefineXML` 定义、`virDomainCreate` 启动、`virDomainShutdown` 关机、`virDomainReboot` 重启、`virDomainDestroy` 强制断电、`virDomainSuspend` 暂停、`virDomainResume` 恢复、`virDomainUndefine` 删除定义
 - **虚拟网络管理**：`virConnectListAllNetworks`、`virNetworkCreate`、`virNetworkDestroy`
 - **虚拟机快照管理**：`virDomainListAllSnapshots`、`virDomainSnapshotCreateXML`、`virDomainRevertToSnapshot`、`virDomainSnapshotDelete`
 - **存储池与存储卷**：`virConnectListAllStoragePools`、`virStoragePoolListAllVolumes`、`virStorageVolGetPath`
@@ -86,7 +86,7 @@ class VirNodeInfo extends Structure {
 ```
 
 ### 2. 堆外内存管理与防泄露机制
-由于 C 语言接口返回的字符指针或结构体数组是由 `libvirt.so` 动态分配在外部物理内存（堆外内存）中的，Java 的垃圾回收机制（GC）无法触及该区域。
+由于 C 语言接口返回的字符指针或结构体数组是由 `libvirt.so` 动态分配在外部物理内存，即堆外内存中的，Java 的垃圾回收机制无法触及该区域。
 为保证系统高频运行下的稳定性，本系统手写了标准 C 语言库的释放接口：
 ```java
 interface LibcLibrary extends Library {
@@ -96,7 +96,7 @@ interface LibcLibrary extends Library {
 凡是调用底层 C 函数获取指针的逻辑，均被包裹在 `try-finally` 代码块中。一旦调用结束，立即执行 `libc.free(Pointer)` 销毁堆外内存。对于 libvirt 返回的句柄对象，则显式调用 `virDomainFree`、`virNetworkFree` 等函数释放库内句柄引用，确保内存泄漏风险降到零。
 
 ### 3. XML 安全性控制与模板技术
-由于 libvirt 定义虚拟机、存储池、网络时均采用 XML 格式的描述符，为防止恶意的外部实体注入安全漏洞（XXE 漏洞），系统编写了安全解析器。在解析 libvirt 返回的 XML 树结构时，显式禁用了外部 DTD 声明与实体引用展开，从源头上保障了平台的底层运行安全性。
+由于 libvirt 定义虚拟机、存储池、网络时均采用 XML 格式的描述符，为防止恶意的 XXE 外部实体注入安全漏洞，系统编写了安全解析器。在解析 libvirt 返回的 XML 树结构时，显式禁用了外部 DTD 声明与实体引用展开，从源头上保障了平台的底层运行安全性。
 
 ### 4. 后端目录树与合并部署结构说明
 后端项目的源码及资源打包目录非常严整，突出了高内聚开发与合并单包部署的技术特点：
@@ -140,10 +140,10 @@ backend
 ## 三、 前端交互设计与关键优化
 
 ### 1. 关机轮询与业务降级策略
-由于虚拟机执行正常关机（优雅关机）时，系统是通过 ACPI 模块向虚拟机发送关机中断信号。如果虚拟机内未安装 ACPI 守护进程，或者虚拟机系统内部发生死锁，该关机信号将石沉大海。
+由于虚拟机执行正常关机时，系统是通过 ACPI 模块向虚拟机发送关机中断信号。如果虚拟机内未安装 ACPI 守护进程，或者虚拟机系统内部发生死锁，该关机信号将石沉大海。
 为优化用户交互体验，前端设计了如下逻辑：
 - 触发关机操作后，界面进入缓冲进度条阶段，每 1.5 秒异步轮询一次该虚拟机的运行状态。
-- 如果轮询达到 15 次（共计约 22.5 秒）后虚拟机依然处于运行状态，系统会自动判断关机失败，并在前端弹窗中提供一键“强制断电”的降级按钮。
+- 如果轮询达到 15 次，共计 22.5 秒后虚拟机依然处于运行状态，系统会自动判断关机失败，并在前端弹窗中提供一键“强制断电”的降级按钮。
 - 用户点击后，调用后端的销毁接口，在底层执行 `virDomainDestroy` 物理切断电源，解决了关机挂起无响应的问题。
 
 ### 2. ECharts 动态看板与操作日志面板
@@ -193,7 +193,7 @@ client-web
 
 #### 各核心模块的简要说明：
 - **`views` 视图层**：根据 libvirt 对不同资源的划分，将管理逻辑拆分到了 7 个视图中。核心看板 `DashboardView` 集成了 ECharts 进行数据大屏展现；`VmView` 实现了防抖操作和轮询优雅关机。
-- **`api` 通信层**：所有交互均被封装在异步函数中，拦截器会在请求时附带操作的中文头。当请求异常（如端口被占用、物理连接异常）时，拦截器将拦截并捕获错误信息。
+- **`api` 通信层**：所有交互均被封装在异步函数中，拦截器会在请求时附带操作的中文头。当请求出现如端口被占用或物理连接异常等情况时，拦截器将拦截并捕获错误信息。
 - **`stores` 状态层**：将需要跨视图同步的状态收纳进统一数据中心。连接探针周期性访问后端并修改 `backendStore`，而日志中心通过 `logStore` 实现日志记录的主动推送和滚动渲染。
 - **`types` 类型层**：扮演网络边界上的契约保障。TypeScript 通过继承或定义结构将虚拟机状态码、存储容量限制等字段声明为精确的类型，消除了开发阶段拼写错漏引发的潜在逻辑缺陷。
 
@@ -205,37 +205,37 @@ client-web
 
 ### 1. libvirt 核心抽象模型
 在 libvirt 的架构中，所有的虚拟化资源均被抽象为特定的 C 语言指针句柄。理解以下五类核心句柄，即可理清整个系统的控制流逻辑：
-- **连接句柄（`virConnectPtr`）**：代表与物理宿主机虚拟机管理器建立的通信信道。这是所有操作的起点，一切获取状态、定义虚拟机的接口都必须首先传入一个有效的连接指针。
-- **域句柄（`virDomainPtr`）**：在 libvirt 的命名空间中，“域”指代虚拟机实例。域句柄提供了控制单个虚拟机全生命周期的底层 API。
-- **网络句柄（`virNetworkPtr`）**：指代宿主机上的虚拟网络（如 NAT 网络、网桥网络），负责虚拟机的网卡连接与断开。
-- **存储池句柄（`virStoragePoolPtr`）**与**存储卷句柄（`virStorageVolPtr`）**：存储池是宿主机物理存储空间的逻辑划分（如镜像目录），存储卷则是存储池中的具体文件（如虚拟机磁盘映像 qcow2 文件）。
-- **快照句柄（`virDomainSnapshotPtr`）**：指代域在某一历史瞬间的状态备份，包含磁盘增量修改与虚拟机内存快照。
+- **连接句柄 virConnectPtr**：代表与物理宿主机虚拟机管理器建立的通信信道。这是所有操作的起点，一切获取状态、定义虚拟机的接口都必须首先传入一个有效的连接指针。
+- **域句柄 virDomainPtr**：在 libvirt 的命名空间中，“域”指代虚拟机实例。域句柄提供了控制单个虚拟机全生命周期的底层 API。
+- **网络句柄 virNetworkPtr**：指代宿主机上的虚拟网络，如 NAT 网络、网桥网络，负责虚拟机的网卡连接与断开。
+- **存储池句柄 virStoragePoolPtr** 与 **存储卷句柄 virStorageVolPtr**：存储池是宿主机物理存储空间的逻辑划分，如镜像目录，存储卷则是存储池中的具体文件，如虚拟机磁盘映像 qcow2 文件。
+- **快照句柄 virDomainSnapshotPtr**：指代域在某一历史瞬间的状态备份，包含磁盘增量修改与虚拟机内存快照。
 
 ### 2. 核心 API 底层运行原理与调用链
-- **建立物理通道（`virConnectOpen`）**：
-  - **调用链**：传入目标 URI（如 `qemu:///system`）。libvirt 底层根据套接字协议，使用特权模式（连接到 qemu-system-x86_64 守护进程）与本地 KVM 控制通道建立 Unix Domain Socket 通信。
-- **硬件架构获取（`virNodeGetInfo`）**：
-  - **调用链**：向底层内核和 `/proc/cpuinfo`、`/sys/devices/system/` 发起调用，抓取宿主机的硬件静态数据（物理 CPU 个数、主频、物理核等）并填充到映射的 C 结构体中。
-- **虚拟机定义注册（`virDomainDefineXML`）**：
-  - **调用链**：接收传入的 XML 描述字符串，在内部执行规范校验，并在 `/etc/libvirt/qemu/` 目录下生成持久化的同名配置文件。此时，该虚拟机被注册，处于关机状态。
-- **硬件资源分配与启动（`virDomainCreate`）**：
+- **建立物理通道 virConnectOpen**：
+  - **调用链**：传入目标 URI，例如 qemu:///system。libvirt 底层根据套接字协议，使用特权模式，即连接到 qemu-system-x86_64 守护进程，与本地 KVM 控制通道建立 Unix Domain Socket 通信。
+- **硬件架构获取 virNodeGetInfo**：
+  - **调用链**：向底层内核和 /proc/cpuinfo、/sys/devices/system/ 发起调用，抓取宿主机的硬件静态数据，如物理 CPU 个数、主频、物理核等，并填充到映射的 C 结构体中。
+- **虚拟机定义注册 virDomainDefineXML**：
+  - **调用链**：接收传入的 XML 描述字符串，在内部执行规范校验，并在 /etc/libvirt/qemu/ 目录下生成持久化的同名配置文件。此时，该虚拟机被注册，处于关机状态。
+- **硬件资源分配与启动 virDomainCreate**：
   - **调用链**：为已定义的虚拟机拉起运行进程。底层会调用 qemu 命令，为该虚拟机分配 vCPU 绑定的物理线程、内存页表映射，挂载磁盘文件，使之切换至运行状态。
-- **优雅关机（`virDomainShutdown`）与强制断电（`virDomainDestroy`）**：
-  - **`virDomainShutdown`**：通过向虚拟机内发送标准的 ACPI 中断信号。这相当于按下物理主机的开机键，由虚拟机内系统的内核处理安全关机逻辑。如果虚拟机内部系统挂起或未安装 ACPI 守护程序，该操作将失效。
-  - **`virDomainDestroy`**：直接对虚拟机执行杀死 QEMU 进程操作。这相当于物理拔掉电源线，立刻释放所有的物理内存和 CPU 线程占用。
-- **状态暂停（`virDomainSuspend`）与恢复运行（`virDomainResume`）**：
+- **优雅关机 virDomainShutdown 与强制断电 virDomainDestroy**：
+  - **virDomainShutdown**：通过向虚拟机内发送标准的 ACPI 中断信号。这相当于按下物理主机的开机键，由虚拟机内系统的内核处理安全关机逻辑。如果虚拟机内部系统挂起或未安装 ACPI 守护程序，该操作将失效。
+  - **virDomainDestroy**：直接对虚拟机执行杀死 QEMU 进程操作。这相当于物理拔掉电源线，立刻释放所有的物理内存和 CPU 线程占用。
+- **状态暂停 virDomainSuspend 与恢复运行 virDomainResume**：
   - **挂起**：libvirt 停止该虚拟机的 CPU 调度队列，但将其物理内存镜像依然驻留在宿主机的内存中。
   - **恢复**：重新将虚拟机重新放入 CPU 调度队列。
-- **配置注销（`virDomainUndefine`）**：
-  - 注销虚拟机的持久化注册状态，删除 `/etc/libvirt/qemu/` 目录下的虚拟机 XML 文件，但底层并不会自动回收其对应的磁盘镜像文件，需要手动调用文件接口进行垃圾清理。
-- **写时复制快照拍摄（`virDomainSnapshotCreateXML`）**：
+- **配置注销 virDomainUndefine**：
+  - 注销虚拟机的持久化注册状态，删除 /etc/libvirt/qemu/ 目录下的虚拟机 XML 文件，但底层并不会自动回收其对应的磁盘镜像文件，需要手动调用文件接口进行垃圾清理。
+- **写时复制快照拍摄 virDomainSnapshotCreateXML**：
   - 传入包含快照元数据的 XML，系统通知 QEMU 对指定的 qcow2 文件创建只读基线，并生成新的数据读写扇区，从而在物理上保留了历史节点。
 
 ### 3. C 语言句柄计数与堆外内存释放机制
-在 JNA 的原生映射下，所有通过 C 接口返回给 Java 的 Pointer 指针（对应 C 语言的各类 `vir*Ptr` 句柄）在 libvirt 底层动态链接库中都是**带有引用计数**的。
+在 JNA 的原生映射下，所有通过 C 接口返回给 Java 的 Pointer 指针，即对应 C 语言的各类 `vir*Ptr` 句柄，在 libvirt 底层动态链接库中都是**带有引用计数**的。
 - 每一个 `virDomainLookupByName` 等调用，都会使底层对象的引用计数加一。
 - **必须手动清理**：当 Java 层面的调用结束后，必须在 `finally` 块中调用 `virDomainFree`、`virNetworkFree` 或 `virConnectClose`。
-- **不进行释放的后果**：由于这些句柄分配在系统的堆外物理内存中，Java 垃圾回收器（GC）无法感知其生命周期。如果不手动调用 Free API 释放，宿主机系统下的文件描述符和内存占用会持续上涨，最终会把宿主机 libvirt 守护进程的文件描述符表撑爆，导致虚拟机管理器崩溃。
+- **不进行释放的后果**：由于这些句柄分配在系统的堆外物理内存中，Java 垃圾回收器无法感知其生命周期。如果不手动调用 Free API 释放，宿主机系统下的文件描述符和内存占用会持续上涨，最终会把宿主机 libvirt 守护进程的文件描述符表撑爆，导致虚拟机管理器崩溃。
 
 ---
 
@@ -255,7 +255,7 @@ private <T> T withDomain(String name, DomainCallback<T> callback) {
     }
 }
 ```
-无论是执行 `virDomainCreate`（启动）、`virDomainShutdown`（关机）还是 `virDomainSuspend`（挂起），系统都通过该方法自动完成底层的句柄申请、业务逻辑回调执行，以及最后的句柄销毁与连接重置，代码优雅且健壮。
+无论是执行 `virDomainCreate` 启动、`virDomainShutdown` 关机还是 `virDomainSuspend` 挂起，系统都通过该方法自动完成底层的句柄申请、业务逻辑回调执行，以及最后的句柄销毁与连接重置，代码优雅且健壮。
 
 ### 2. 虚拟机快照的格式约束与实现
 在宿主机部署调试中发现，传统的 `raw` 格式磁盘镜像受 Linux 底层设备映射器驱动的限制，不支持保存虚拟机内部状态，无法创建快照。
@@ -270,13 +270,13 @@ private <T> T withDomain(String name, DomainCallback<T> callback) {
 
 本课程设计由小组成员分工协作完成，并在宿主机上基于双配置模式进行了敏捷迭代，成员的具体分工与职责划分如下：
 
-### 1. 成员 A（后端负责人）开发职责
+### 1. 成员 A 作为后端负责人开发职责
 - **接口设计与 API 实现**：基于 Spring Boot 3.3.6 与 Java 21 负责系统后端接口的重构设计，编写控制器切面与全局异常处理类。
 - **原生 JNA 驱动映射**：手动映射 57 个 libvirt 原生 C 接口及 4 个关键信息内存结构体，处理 Java 对接底层 Linux C 库的数据对齐。
 - **堆外内存安全防泄露**：编写 C 库的 free 函数映射，对 libvirt 返回的所有指针进行显式内存释放，确保无句柄堆外残留。
 - **双模式运行装配**：利用 Spring 属性装配机制编写 mock 调试类与 libvirt 物理驱动类，负责 CentOS 系统中 QEMU 冲突及 DNS 连接延迟的排查。
 
-### 2. 成员 B（前端与 Swing 负责人）开发职责
+### 2. 成员 B 作为前端与 Swing 负责人开发职责
 - **多端图形交互开发**：主导 client-web 模块的页面搭建与 TypeScript 组件编写；开发 client-swing 桌面应用，利用 FlatLaf 完成 UI 明暗扁平主题优化。
 - **状态控制与时序轮询**：负责虚拟机正常关机后 1.5 秒的状态异步轮询逻辑，并在超时后触发前端降级至“强制断电”的操作流。
 - **可视化与日志看板**：基于 ECharts 构建宿主机与存储利用率的动态看板，结合 Axios 拦截器将 `X-Action-Description` 头日志推送至 Pinia 操作追踪面板。
@@ -288,7 +288,7 @@ private <T> T withDomain(String name, DomainCallback<T> callback) {
 
 ### 1. JNA 内存级调用与外部进程调用的权衡
 在系统设计初期，对于如何实现 Java 后端与物理 KVM 宿主机的通信，项目组在“使用外部进程调用命令行工具”与“使用内存级原生库链接”之间进行了深入对比：
-- **安全边界的权衡**：如果采用外部进程启动（如执行命令行工具），在 Web 网络环境中极易受到外部命令注入的威胁。一旦输入参数未经过严苛过滤，恶意请求可能会拼接 shell 管道指令，造成宿主机系统被排查及越权操作的安全隐患。而通过 JNA 直接链接 `libvirt.so.0`，所有交互均通过强类型的内存指针和 C 语言函数签名进行传输，在物理隔离层面上杜绝了命令行外壳注入漏洞。
+- **安全边界的权衡**：如果采用外部进程启动，如执行命令行工具，在 Web 网络环境中极易受到外部命令注入的威胁。一旦输入参数未经过严苛过滤，恶意请求可能会拼接 shell 管道指令，造成宿主机系统被排查及越权操作的安全隐患。而通过 JNA 直接链接 `libvirt.so.0`，所有交互均通过强类型的内存指针和 C 语言函数签名进行传输，在物理隔离层面上杜绝了命令行外壳注入漏洞。
 - **上下文切换与系统开销**：高频创建进程的系统开销极大。每次执行命令行工具都需要操作系统 fork 出一个全新的子进程，并在用户态和内核态之间执行复杂的上下文切换，这在并发场景下会使宿主机 CPU 迅速过载。采用 JNA 方式，调用直接在当前 Java 线程 of 堆外内存空间中以指针地址寻址方式执行，接口调用延迟可控制在微秒级。
 - **底层错误解析深度**：在调试虚拟机操作失败时，命令行工具往往仅返回通用的非零退出码和模糊的标准错误流。而使用原生 C 接口，系统可以在发生异常时调用 `virGetLastErrorMessage` 函数，直接读取底层动态链接库在物理内存中缓存的精确 C 结构体报错信息。这使得后端可以在业务异常中向客户端返回精确的底层诊断。
 
@@ -303,6 +303,6 @@ private <T> T withDomain(String name, DomainCallback<T> callback) {
 - **hosts 本地拦截自愈**：针对该技术挑战，项目组在 CentOS 虚拟机的 `/etc/hosts` 配置文件中加入了本地解析项：将虚拟机的主机名 `centos` 显式绑定到 IPv4 的 `127.0.0.1` 以及 IPv6 的 `::1` 本地回环地址。在配置该 hosts 拦截解析链后，反向解析在本地瞬间返回，接口建连时间从数秒直接下降到了 **0.15 秒** 以内。
 
 ### 4. 虚拟机级联注销与物理存储资源回收保障
-在测试虚拟机删除功能时，项目组发现，调用 libvirt 原生 C 接口的 `virDomainUndefine` 仅会注销该虚拟机在 hypervisor 里的 XML 配置登记，并删除 `/etc/libvirt/qemu/` 下的配置描述，但存放在存储池中的磁盘文件（如虚拟机的 `.qcow2` 磁盘映像）依然会被残留在宿主机上。
+在测试虚拟机删除功能时，项目组发现，调用 libvirt 原生 C 接口的 `virDomainUndefine` 仅会注销该虚拟机在 hypervisor 里的 XML 配置登记，并删除 `/etc/libvirt/qemu/` 下的配置描述，但存放在存储池中的磁盘文件，例如虚拟机的 `.qcow2` 磁盘映像，依然会被残留在宿主机上。
 - **存储残留问题**：在一台虚拟机被销毁后，其数十吉字节的磁盘文件如果被白白浪费，经过多次创建与删除循环后，宿主机的物理磁盘空间会被迅速耗尽，直接危及其他虚拟机的运行安全。
-- **物理级联清理设计**：为解决这一存储残留隐患，系统在虚拟机删除服务中设计了级联清理链条。在执行 `virDomainUndefine` 之前，服务层利用 XML 安全解析器解析该虚拟机的 XML 描述树，级联定位到 `<devices>/<disk>/<source>` 节点，提取出其所绑定的虚拟磁盘映像绝对物理路径（如 `/var/lib/libvirt/images/demo.qcow2`）。在确认注销函数成功返回后，通过文件系统组件对该路径的磁盘映像执行物理安全擦除，保证了宿主机物理存储空间的及时回收。
+- **物理级联清理设计**：为解决这一存储残留隐患，系统在虚拟机删除服务中设计了级联清理链条。在执行 `virDomainUndefine` 之前，服务层利用 XML 安全解析器解析该虚拟机的 XML 描述树，级联定位到 `<devices>/<disk>/<source>` 节点，提取出其所绑定的虚拟磁盘映像绝对物理路径，例如 `/var/lib/libvirt/images/demo.qcow2`。在确认注销函数成功返回后，通过文件系统组件对该路径的磁盘映像执行物理安全擦除，保证了宿主机物理存储空间的及时回收。
