@@ -191,6 +191,11 @@ const fetchVms = async () => {
   try {
     const data = await getVms();
     vms.value = data;
+    // 默认选中第一个虚拟机并自动加载快照列表
+    if (data && data.length > 0 && !selectedVmName.value) {
+      selectedVmName.value = data[0].name;
+      fetchSnapshots();
+    }
   } catch (error) {
     console.error('获取虚拟机列表失败', error);
   }

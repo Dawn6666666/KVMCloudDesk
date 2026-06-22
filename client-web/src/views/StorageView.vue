@@ -12,6 +12,7 @@
           </template>
 
           <el-table 
+            ref="poolsTableRef"
             v-loading="poolsLoading" 
             :data="pools" 
             highlight-current-row
@@ -161,6 +162,7 @@ import type { FormInstance } from 'element-plus';
 const pools = ref<StoragePoolInfoDto[]>([]);
 const volumes = ref<StorageVolumeInfoDto[]>([]);
 const selectedPoolName = ref<string>('');
+const poolsTableRef = ref<any>(null);
 
 const poolsLoading = ref(false);
 const volumesLoading = ref(false);
@@ -198,10 +200,30 @@ const fetchPools = async () => {
   try {
     const data = await getStoragePools();
     pools.value = data;
-    // Clear selection if current selection is not in the active pools anymore
+    
+    // 如果之前选中的存储池已经不在活动的存储池中了，清空它
     if (selectedPoolName.value && !data.some(p => p.name === selectedPoolName.value && p.active)) {
       selectedPoolName.value = '';
       volumes.value = [];
+    }
+    
+    // 默认选中第一个活跃的存储池
+    if (data && data.length > 0) {
+      const currentActive = data.find(p => p.name === selectedPoolName.value && p.active);
+      if (currentActive) {
+        setTimeout(() => {
+          poolsTableRef.value?.setCurrentRow(currentActive);
+        }, 50);
+      } else {
+        const defaultActive = data.find(p => p.active);
+        if (defaultActive) {
+          selectedPoolName.value = defaultActive.name;
+          fetchVolumes();
+          setTimeout(() => {
+            poolsTableRef.value?.setCurrentRow(defaultActive);
+          }, 50);
+        }
+      }
     }
   } catch (error) {
     console.error('加载存储池列表异常', error);
