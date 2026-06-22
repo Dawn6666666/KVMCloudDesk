@@ -4,15 +4,20 @@ import com.example.kvm.backend.exception.BusinessException;
 import com.example.kvm.backend.service.StorageService;
 import com.example.kvm.common.dto.StoragePoolInfoDto;
 import com.example.kvm.common.dto.StorageVolumeInfoDto;
+import com.example.kvm.common.request.CreateVolumeRequest;
 import com.sun.jna.Pointer;
 import com.sun.jna.ptr.IntByReference;
 import com.sun.jna.ptr.PointerByReference;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 
 @Service
 @Profile("libvirt")
@@ -49,8 +54,59 @@ public class LibvirtStorageService implements StorageService {
         }
     }
 
+    private Map<String, String> getDiskVmMap() {
+        Map<String, String> map = new HashMap<>();
+        LibvirtLibrary lib = manager.library();
+        Pointer conn = manager.open();
+        PointerByReference domainsRef = new PointerByReference();
+        try {
+            int count = lib.virConnectListAllDomains(conn, domainsRef, 0);
+            if (count > 0) {
+                Pointer domains = domainsRef.getValue();
+                if (domains != null) {
+                    for (Pointer domain : domains.getPointerArray(0, count)) {
+                        try {
+                            String vmName = LibvirtUtil.pointerString(lib.virDomainGetName(domain));
+                            Pointer xmlPointer = lib.virDomainGetXMLDesc(domain, 0);
+                            if (xmlPointer != null) {
+                                try {
+                                    Document doc = LibvirtUtil.xml(xmlPointer.getString(0, "UTF-8"));
+                                    NodeList disks = doc.getElementsByTagName("disk");
+                                    for (int i = 0; i < disks.getLength(); i++) {
+                                        if (disks.item(i) instanceof Element diskEl) {
+                                            NodeList sources = diskEl.getElementsByTagName("source");
+                                            if (sources.getLength() > 0 && sources.item(0) instanceof Element sourceEl) {
+                                                if (sourceEl.hasAttribute("file")) {
+                                                    String file = sourceEl.getAttribute("file");
+                                                    if (file != null && !file.isBlank()) {
+                                                        map.put(file, vmName);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                } finally {
+                                    manager.free(xmlPointer);
+                                }
+                            }
+                        } catch (Exception ignored) {
+                        } finally {
+                            lib.virDomainFree(domain);
+                        }
+                    }
+                    manager.free(domains);
+                }
+            }
+        } catch (Exception ignored) {
+        } finally {
+            manager.close(conn);
+        }
+        return map;
+    }
+
     @Override
     public List<StorageVolumeInfoDto> listVolumes(String poolName) {
+        Map<String, String> diskVmMap = getDiskVmMap();
         return withPool(poolName, pool -> {
             LibvirtLibrary lib = manager.library();
             PointerByReference volumesRef = new PointerByReference();
@@ -61,7 +117,9 @@ public class LibvirtStorageService implements StorageService {
             if (volumes != null) {
                 for (Pointer volume : volumes.getPointerArray(0, count)) {
                     try {
-                        result.add(toVolumeDto(volume));
+                        StorageVolumeInfoDto dto = toVolumeDto(volume);
+                        dto.vmName = diskVmMap.get(dto.path);
+                        result.add(dto);
                     } finally {
                         lib.virStorageVolFree(volume);
                     }
@@ -69,6 +127,53 @@ public class LibvirtStorageService implements StorageService {
                 manager.free(volumes);
             }
             return result.stream().sorted(Comparator.comparing(v -> v.name)).toList();
+        });
+    }
+
+    @Override
+    public StorageVolumeInfoDto createVolume(String poolName, CreateVolumeRequest request) {
+        return withPool(poolName, pool -> {
+            LibvirtLibrary lib = manager.library();
+            String format = request.format != null ? request.format.toLowerCase() : "qcow2";
+            long bytes = (long) (request.capacityGb * 1024 * 1024 * 1024);
+            String xml = "<volume>\n" +
+                         "  <name>" + request.name + "</name>\n" +
+                         "  <capacity unit='bytes'>" + bytes + "</capacity>\n" +
+                         "  <target>\n" +
+                         "    <format type='" + format + "'/>\n" +
+                         "  </target>\n" +
+                         "</volume>";
+            Pointer vol = lib.virStorageVolCreateXML(pool, xml, 0);
+            if (vol == null) {
+                throw new BusinessException("创建存储卷失败：" + manager.lastErrorMessage());
+            }
+            try {
+                return toVolumeDto(vol);
+            } finally {
+                lib.virStorageVolFree(vol);
+            }
+        });
+    }
+
+    @Override
+    public void deleteVolume(String poolName, String volumeName) {
+        withPool(poolName, pool -> {
+            LibvirtLibrary lib = manager.library();
+            Pointer vol = lib.virStorageVolLookupByName(pool, volumeName);
+            if (vol == null) {
+                throw new BusinessException("存储卷不存在：" + volumeName);
+            }
+            try {
+                Map<String, String> diskVmMap = getDiskVmMap();
+                StorageVolumeInfoDto dto = toVolumeDto(vol);
+                if (diskVmMap.containsKey(dto.path)) {
+                    throw new BusinessException("存储卷正被虚拟机使用，无法删除：" + diskVmMap.get(dto.path));
+                }
+                check(lib.virStorageVolDelete(vol, 0), "删除存储卷失败：" + volumeName);
+                return null;
+            } finally {
+                lib.virStorageVolFree(vol);
+            }
         });
     }
 

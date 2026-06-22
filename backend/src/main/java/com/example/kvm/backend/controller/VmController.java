@@ -61,6 +61,12 @@ public class VmController {
         return ApiResponse.ok("恢复虚拟机成功", null);
     }
 
+    @PostMapping("/{name}/reboot")
+    public ApiResponse<Void> reboot(@PathVariable("name") String name) {
+        vmService.rebootVm(name);
+        return ApiResponse.ok("重启虚拟机成功", null);
+    }
+
     @DeleteMapping("/{name}")
     public ApiResponse<Void> delete(@PathVariable("name") String name) {
         vmService.deleteVm(name);

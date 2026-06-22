@@ -13,11 +13,11 @@ export const useLogStore = defineStore('log', {
     logs: [] as LogEntry[],
   }),
   actions: {
-    addLog(type: 'info' | 'success' | 'error', action: string, detail: string) {
+    addLog(type: 'info' | 'success' | 'error', action: string, detail: string, id?: string) {
       const now = new Date();
       const timeStr = now.toLocaleTimeString() + '.' + String(now.getMilliseconds()).padStart(3, '0');
       this.logs.unshift({
-        id: Math.random().toString(36).substring(2, 9),
+        id: id || Math.random().toString(36).substring(2, 9),
         timestamp: timeStr,
         type,
         action,
@@ -25,6 +25,15 @@ export const useLogStore = defineStore('log', {
       });
       if (this.logs.length > 200) {
         this.logs = this.logs.slice(0, 200);
+      }
+    },
+    updateLog(id: string, type: 'success' | 'error', detail: string) {
+      const log = this.logs.find(l => l.id === id);
+      if (log) {
+        log.type = type;
+        log.detail = detail;
+        const now = new Date();
+        log.timestamp = now.toLocaleTimeString() + '.' + String(now.getMilliseconds()).padStart(3, '0');
       }
     },
     clearLogs() {

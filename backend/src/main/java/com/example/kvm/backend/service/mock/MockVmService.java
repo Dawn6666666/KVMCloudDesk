@@ -110,6 +110,15 @@ public class MockVmService implements VmService {
     }
 
     @Override
+    public void rebootVm(String name) {
+        VmInfoDto vm = getVm(name);
+        if (!"运行".equals(vm.state)) {
+            throw new BusinessException("只有运行中的虚拟机可以重启");
+        }
+        vm.state = "运行";
+    }
+
+    @Override
     public void deleteVm(String name) {
         if (store.vms.remove(name) == null) {
             throw new BusinessException("虚拟机不存在：" + name);

@@ -27,6 +27,8 @@ export interface HostInfoDto {
   osName: string;
   osKernel: string;
   uptime: string;
+  networkRxBytes: number;
+  networkTxBytes: number;
 }
 
 export interface VmInfoDto {
@@ -50,6 +52,8 @@ export interface ImageInfoDto {
   path: string;
   format: string;
   sizeGb: number;
+  physicalSizeGb: number;
+  exists: boolean;
   createTime: string;
   description: string;
 }
@@ -62,8 +66,10 @@ export interface NetworkInfoDto {
   bridgeName: string;
   forwardMode: string;
   ipAddress: string;
+  netmask: string;
   dhcpStart: string;
   dhcpEnd: string;
+  vmCount?: number;
 }
 
 export interface SnapshotInfoDto {
@@ -72,6 +78,7 @@ export interface SnapshotInfoDto {
   createTime: string;
   state: string;
   description: string;
+  current: boolean;
 }
 
 export interface StoragePoolInfoDto {
@@ -91,6 +98,7 @@ export interface StorageVolumeInfoDto {
   type: string;
   capacityGb: number;
   allocationGb: number;
+  vmName?: string;
 }
 
 export interface CreateVmRequest {

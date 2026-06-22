@@ -6,4 +6,5 @@ public class StorageVolumeInfoDto {
     public String type;
     public double capacityGb;
     public double allocationGb;
+    public String vmName;
 }

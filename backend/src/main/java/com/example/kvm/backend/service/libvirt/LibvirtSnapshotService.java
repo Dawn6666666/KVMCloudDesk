@@ -30,6 +30,12 @@ public class LibvirtSnapshotService implements SnapshotService {
     public List<SnapshotInfoDto> listSnapshots(String vmName) {
         return withDomain(vmName, domain -> {
             LibvirtLibrary lib = manager.library();
+            String currentName = null;
+            Pointer currentSnapshot = lib.virDomainSnapshotCurrent(domain, 0);
+            if (currentSnapshot != null) {
+                currentName = LibvirtUtil.pointerString(lib.virDomainSnapshotGetName(currentSnapshot));
+                lib.virDomainSnapshotFree(currentSnapshot);
+            }
             PointerByReference snapshotsRef = new PointerByReference();
             int count = lib.virDomainListAllSnapshots(domain, snapshotsRef, 0);
             check(count, "获取快照列表失败：" + vmName);
@@ -38,7 +44,11 @@ public class LibvirtSnapshotService implements SnapshotService {
             if (snapshots != null) {
                 for (Pointer snapshot : snapshots.getPointerArray(0, count)) {
                     try {
-                        result.add(toDto(snapshot, vmName));
+                        SnapshotInfoDto dto = toDto(snapshot, vmName);
+                        if (currentName != null && currentName.equals(dto.name)) {
+                            dto.current = true;
+                        }
+                        result.add(dto);
                     } finally {
                         lib.virDomainSnapshotFree(snapshot);
                     }
@@ -66,7 +76,9 @@ public class LibvirtSnapshotService implements SnapshotService {
                 throw new BusinessException("创建快照失败：" + request.name + "：" + manager.lastErrorMessage());
             }
             try {
-                return toDto(snapshot, vmName);
+                SnapshotInfoDto dto = toDto(snapshot, vmName);
+                dto.current = true;
+                return dto;
             } finally {
                 manager.library().virDomainSnapshotFree(snapshot);
             }

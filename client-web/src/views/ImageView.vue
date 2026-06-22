@@ -15,17 +15,24 @@
         <el-table-column prop="name" label="镜像名称" width="180" fixed />
         <el-table-column prop="format" label="格式" width="100">
           <template #default="{ row }">
-            <el-tag size="small" type="info" effect="dark">
+            <el-tag size="small" :type="getFormatTagType(row.format)" effect="dark">
               {{ (row.format || 'unknown').toUpperCase() }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="容量">
+        <el-table-column label="占用 / 规格" width="180">
           <template #default="{ row }">
-            <span>{{ row.sizeGb.toFixed(2) }} GB</span>
+            <span>{{ (row.physicalSizeGb || 0).toFixed(2) }} GB / {{ (row.sizeGb || 0).toFixed(2) }} GB</span>
           </template>
         </el-table-column>
-        <el-table-column prop="path" label="物理路径" min-width="260" show-overflow-tooltip />
+        <el-table-column prop="path" label="物理路径" min-width="260" show-overflow-tooltip>
+          <template #default="{ row }">
+            <div class="path-cell" style="display: flex; align-items: center; gap: 8px;">
+              <span :class="['status-dot', row.exists ? 'active' : 'error']" :title="row.exists ? '物理文件完好' : '物理文件缺失'"></span>
+              <span>{{ row.path }}</span>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="createTime" label="扫描录入时间" width="160" />
         <el-table-column prop="description" label="详细描述" min-width="150" show-overflow-tooltip />
         <el-table-column label="操作" width="120" fixed="right">
@@ -90,6 +97,15 @@ import type { FormInstance, FormRules } from 'element-plus';
 import { Plus, Refresh } from '@element-plus/icons-vue';
 import { getImages, addImage, deleteImage } from '@/api/kvm';
 import type { ImageInfoDto, AddImageRequest } from '@/types/kvm';
+
+const getFormatTagType = (format: string) => {
+  if (!format) return 'info';
+  const lower = format.toLowerCase();
+  if (lower === 'qcow2') return 'primary';
+  if (lower === 'raw') return 'warning';
+  if (lower === 'iso') return 'success';
+  return 'info';
+};
 
 const images = ref<ImageInfoDto[]>([]);
 const globalLoading = ref(false);
@@ -198,5 +214,20 @@ onMounted(() => {
 .header-right {
   display: flex;
   gap: 12px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.status-dot.active {
+  background-color: var(--el-color-success);
+  box-shadow: 0 0 6px var(--el-color-success);
+}
+.status-dot.error {
+  background-color: var(--el-color-danger);
+  box-shadow: 0 0 6px var(--el-color-danger);
 }
 </style>

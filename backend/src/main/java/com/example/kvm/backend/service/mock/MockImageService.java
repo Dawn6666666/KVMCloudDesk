@@ -33,6 +33,8 @@ public class MockImageService implements ImageService {
         dto.path = request.path;
         dto.format = request.name.endsWith(".iso") ? "iso" : request.name.endsWith(".img") ? "raw" : "qcow2";
         dto.sizeGb = 1;
+        dto.physicalSizeGb = 0.8;
+        dto.exists = true;
         dto.createTime = MockDataStore.now();
         dto.description = request.description;
         store.images.put(dto.name, dto);

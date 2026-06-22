@@ -61,6 +61,12 @@ export const resumeVm = (name: string): Promise<void> => {
   });
 };
 
+export const rebootVm = (name: string): Promise<void> => {
+  return http.post(`/vms/${name}/reboot`, null, {
+    headers: { 'X-Action-Description': `重启虚拟机 ${name}` }
+  });
+};
+
 export const deleteVm = (name: string): Promise<void> => {
   return http.delete(`/vms/${name}`, {
     headers: { 'X-Action-Description': `删除虚拟机 ${name}` }
@@ -139,4 +145,16 @@ export const getStoragePools = (): Promise<StoragePoolInfoDto[]> => {
 
 export const getStoragePoolVolumes = (poolName: string): Promise<StorageVolumeInfoDto[]> => {
   return http.get(`/storage/pools/${poolName}/volumes`);
+};
+
+export const createStorageVolume = (poolName: string, data: { name: string; capacityGb: number; format: string }): Promise<StorageVolumeInfoDto> => {
+  return http.post(`/storage/pools/${poolName}/volumes`, data, {
+    headers: { 'X-Action-Description': `在存储池 ${poolName} 中创建卷 ${data.name}` }
+  });
+};
+
+export const deleteStorageVolume = (poolName: string, volumeName: string): Promise<void> => {
+  return http.delete(`/storage/pools/${poolName}/volumes/${volumeName}`, {
+    headers: { 'X-Action-Description': `从存储池 ${poolName} 中删除卷 ${volumeName}` }
+  });
 };

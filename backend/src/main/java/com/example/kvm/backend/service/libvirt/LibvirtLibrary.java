@@ -32,6 +32,7 @@ public interface LibvirtLibrary extends Library {
     int virDomainIsPersistent(Pointer domain);
     int virDomainCreate(Pointer domain);
     int virDomainShutdown(Pointer domain);
+    int virDomainReboot(Pointer domain, int flags);
     int virDomainDestroy(Pointer domain);
     int virDomainSuspend(Pointer domain);
     int virDomainResume(Pointer domain);
@@ -60,6 +61,7 @@ public interface LibvirtLibrary extends Library {
     int virDomainRevertToSnapshot(Pointer snapshot, int flags);
     int virDomainSnapshotDelete(Pointer snapshot, int flags);
     int virDomainSnapshotFree(Pointer snapshot);
+    Pointer virDomainSnapshotCurrent(Pointer domain, int flags);
 
     int virConnectListAllStoragePools(Pointer conn, PointerByReference pools, int flags);
     Pointer virStoragePoolLookupByName(Pointer conn, String name);
@@ -76,6 +78,9 @@ public interface LibvirtLibrary extends Library {
     Pointer virStorageVolGetPath(Pointer volume);
     int virStorageVolGetInfo(Pointer volume, VirStorageVolInfo info);
     int virStorageVolFree(Pointer volume);
+    Pointer virStorageVolLookupByName(Pointer pool, String name);
+    Pointer virStorageVolCreateXML(Pointer pool, String xmlDesc, int flags);
+    int virStorageVolDelete(Pointer volume, int flags);
 
     class VirNodeInfo extends Structure {
         public byte[] model = new byte[32];

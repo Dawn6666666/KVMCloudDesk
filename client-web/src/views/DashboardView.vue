@@ -37,23 +37,40 @@
           <span class="stat-desc">活跃存储池总计容量</span>
         </div>
       </el-card>
+      <el-card shadow="hover" class="stat-card">
+        <div class="stat-card-content">
+          <span class="stat-title">网络流量瞬时吞吐</span>
+          <span class="stat-value text-green" style="font-size: 18px; line-height: 38px;">
+            入: {{ netSpeedRx }} / 出: {{ netSpeedTx }}
+          </span>
+          <span class="stat-desc">实时网口收发速率</span>
+        </div>
+      </el-card>
     </div>
 
     <!-- Real-time Metrics & Allocations Charts -->
     <el-row :gutter="20" class="chart-row">
-      <el-col :span="16">
-        <el-card header="宿主机物理负载实时趋势 (CPU / 内存走势)" shadow="hover">
+      <el-col :span="12">
+        <el-card header="宿主机物理负载实时趋势" shadow="hover">
           <div ref="trendChartRef" class="chart-box main-chart"></div>
         </el-card>
       </el-col>
-      <el-col :span="8">
-        <el-card header="各虚拟机分配资源对比" shadow="hover">
-          <div ref="allocationChartRef" class="chart-box main-chart"></div>
+      <el-col :span="12">
+        <el-card header="宿主机网络吞吐实时走势" shadow="hover">
+          <div ref="netTrendChartRef" class="chart-box main-chart"></div>
         </el-card>
       </el-col>
     </el-row>
 
     <!-- Global Stats Charts -->
+    <el-row :gutter="20" class="chart-row">
+      <el-col :span="24">
+        <el-card header="各虚拟机分配资源对比" shadow="hover">
+          <div ref="allocationChartRef" class="chart-box main-chart" style="height: 280px;"></div>
+        </el-card>
+      </el-col>
+    </el-row>
+
     <el-row :gutter="20" class="chart-row small-charts-row">
       <el-col :span="8">
         <el-card header="宿主机物理内存分布" shadow="hover">
@@ -86,12 +103,14 @@ const storagePools = ref<StoragePoolInfoDto[]>([]);
 
 // ECharts 元素引用
 const trendChartRef = ref<HTMLElement | null>(null);
+const netTrendChartRef = ref<HTMLElement | null>(null);
 const allocationChartRef = ref<HTMLElement | null>(null);
 const memoryChartRef = ref<HTMLElement | null>(null);
 const statusChartRef = ref<HTMLElement | null>(null);
 const storageChartRef = ref<HTMLElement | null>(null);
 
 let trendChart: echarts.ECharts | null = null;
+let netTrendChart: echarts.ECharts | null = null;
 let allocationChart: echarts.ECharts | null = null;
 let memoryChart: echarts.ECharts | null = null;
 let statusChart: echarts.ECharts | null = null;
@@ -101,6 +120,16 @@ let storageChart: echarts.ECharts | null = null;
 const cpuHistory = ref<number[]>([]);
 const memoryHistory = ref<number[]>([]);
 const timelineLabels = ref<string[]>([]);
+
+// 网络吞吐计算
+const lastRxBytes = ref<number>(0);
+const lastTxBytes = ref<number>(0);
+const lastMetricsTime = ref<number>(0);
+
+const netRxHistory = ref<number[]>([]);
+const netTxHistory = ref<number[]>([]);
+const netSpeedRx = ref<string>('0.0 KB/s');
+const netSpeedTx = ref<string>('0.0 KB/s');
 
 const runningVmsCount = computed(() => {
   return vms.value.filter(vm => vm.state === '运行').length;
@@ -114,15 +143,47 @@ const totalStoragePoolCapacity = computed(() => {
 
 // 向历史记录时序中推送实时采样指标
 const pushMetricsToHistory = () => {
+  const nowTime = Date.now();
   const timeStr = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+  
   cpuHistory.value.push(hostInfo.value ? hostInfo.value.cpuUsagePercent : 0);
   memoryHistory.value.push(hostInfo.value ? hostInfo.value.memoryUsagePercent : 0);
   timelineLabels.value.push(timeStr);
   
-  // 仅在图表中保留最近 10 个数据采样点（30秒）
-  if (cpuHistory.value.length > 10) {
+  // 计算网络吞吐量速率
+  if (hostInfo.value) {
+    const rx = hostInfo.value.networkRxBytes || 0;
+    const tx = hostInfo.value.networkTxBytes || 0;
+    if (lastRxBytes.value > 0 && lastTxBytes.value > 0 && lastMetricsTime.value > 0) {
+      const timeDelta = (nowTime - lastMetricsTime.value) / 1000.0;
+      if (timeDelta > 0) {
+        const speedRxVal = Math.max(0, (rx - lastRxBytes.value) / timeDelta / 1024.0);
+        const speedTxVal = Math.max(0, (tx - lastTxBytes.value) / timeDelta / 1024.0);
+        
+        netRxHistory.value.push(Number(speedRxVal.toFixed(1)));
+        netTxHistory.value.push(Number(speedTxVal.toFixed(1)));
+        
+        netSpeedRx.value = speedRxVal >= 1024 ? (speedRxVal / 1024.0).toFixed(1) + ' MB/s' : speedRxVal.toFixed(1) + ' KB/s';
+        netSpeedTx.value = speedTxVal >= 1024 ? (speedTxVal / 1024.0).toFixed(1) + ' MB/s' : speedTxVal.toFixed(1) + ' KB/s';
+      }
+    } else {
+      netRxHistory.value.push(0);
+      netTxHistory.value.push(0);
+    }
+    lastRxBytes.value = rx;
+    lastTxBytes.value = tx;
+    lastMetricsTime.value = nowTime;
+  } else {
+    netRxHistory.value.push(0);
+    netTxHistory.value.push(0);
+  }
+  
+  // 仅在图表中保留最近 30 个数据采样点，共 90 秒
+  if (cpuHistory.value.length > 30) {
     cpuHistory.value.shift();
     memoryHistory.value.shift();
+    netRxHistory.value.shift();
+    netTxHistory.value.shift();
     timelineLabels.value.shift();
   }
 };
@@ -221,6 +282,82 @@ const renderTrendChart = () => {
   });
 };
 
+// 渲染大图表：网络吞吐流量图
+const renderNetTrendChart = () => {
+  if (!netTrendChartRef.value) return;
+  if (!netTrendChart) {
+    netTrendChart = echarts.init(netTrendChartRef.value);
+  }
+  netTrendChart.setOption({
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: '#ffffff',
+      borderColor: '#e4dec9',
+      borderWidth: 1,
+      textStyle: { color: '#2c2520' }
+    },
+    legend: {
+      data: ['入站速率', '出站速率'],
+      textStyle: { color: '#746c63' },
+      top: '0%'
+    },
+    grid: {
+      top: '15%',
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      data: timelineLabels.value,
+      axisLabel: { color: '#746c63' }
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: {
+        formatter: '{value} KB/s',
+        color: '#746c63'
+      },
+      splitLine: { lineStyle: { color: 'rgba(228, 222, 201, 0.3)' } }
+    },
+    series: [
+      {
+        name: '入站速率',
+        type: 'line',
+        data: netRxHistory.value,
+        smooth: true,
+        showSymbol: false,
+        lineStyle: { width: 3, color: '#16a34a' },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(22, 163, 74, 0.3)' },
+            { offset: 1, color: 'rgba(22, 163, 74, 0.0)' }
+          ])
+        },
+        itemStyle: { color: '#16a34a' }
+      },
+      {
+        name: '出站速率',
+        type: 'line',
+        data: netTxHistory.value,
+        smooth: true,
+        showSymbol: false,
+        lineStyle: { width: 3, color: '#ea580c' },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(234, 88, 12, 0.3)' },
+            { offset: 1, color: 'rgba(234, 88, 12, 0.0)' }
+          ])
+        },
+        itemStyle: { color: '#ea580c' }
+      }
+    ]
+  });
+};
+
 // 渲染大图表：虚拟机 CPU / 内存配额占比柱状图
 const renderAllocationChart = () => {
   if (!allocationChartRef.value) return;
@@ -249,7 +386,7 @@ const renderAllocationChart = () => {
       textStyle: { color: '#2c2520' }
     },
     legend: {
-      data: ['分配 CPU (核)', '分配内存 (MB)'],
+      data: ['分配 CPU/核', '分配内存/MB'],
       textStyle: { color: '#746c63' },
       bottom: '0%'
     },
@@ -283,13 +420,13 @@ const renderAllocationChart = () => {
     ],
     series: [
       {
-        name: '分配 CPU (核)',
+        name: '分配 CPU/核',
         type: 'bar',
         data: cpus,
         itemStyle: { color: '#ca6a1f' }
       },
       {
-        name: '分配内存 (MB)',
+        name: '分配内存/MB',
         type: 'bar',
         yAxisIndex: 1,
         data: memories,
@@ -334,14 +471,14 @@ const renderMemoryChart = () => {
           show: true,
           position: 'center',
           formatter: `${percent}%\n已用`,
-          fontSize: 18,
+          fontSize: 16,
           fontWeight: 'bold',
           color: '#2c2520',
-          lineHeight: 24
+          lineHeight: 22
         },
         data: [
           { value: used, name: '已用内存', itemStyle: { color: '#ca6a1f' } },
-          { value: free, name: '空闲内存', itemStyle: { color: '#f2ede0' } }
+          { value: free, name: '空闲内存', itemStyle: { color: 'rgba(116, 108, 99, 0.12)' } }
         ]
       }
     ]
@@ -374,7 +511,7 @@ const renderStatusChart = () => {
   })).filter(item => item.value > 0);
 
   if (chartData.length === 0) {
-    chartData.push({ name: '无实例', value: 0, itemStyle: { color: '#f2ede0' } });
+    chartData.push({ name: '无实例', value: 0, itemStyle: { color: 'rgba(116, 108, 99, 0.12)' } });
   }
 
   statusChart.setOption({
@@ -391,27 +528,33 @@ const renderStatusChart = () => {
       left: 'center',
       textStyle: { color: '#746c63' },
       itemWidth: 10,
-      itemHeight: 10
+      itemHeight: 10,
+      formatter: (name: string) => {
+        const item = chartData.find(d => d.name === name);
+        return item ? `${name}: ${item.value}台` : name;
+      }
     },
     series: [
       {
         name: '状态统计',
         type: 'pie',
-        radius: '55%',
-        center: ['50%', '45%'],
-        data: chartData,
-        emphasis: {
-          itemStyle: {
-            shadowBlur: 10,
-            shadowOffsetX: 0,
-            shadowColor: 'rgba(44, 37, 32, 0.1)'
-          }
+        radius: ['60%', '80%'],
+        avoidLabelOverlap: false,
+        itemStyle: {
+          borderRadius: 6,
+          borderColor: '#ffffff',
+          borderWidth: 2
         },
         label: {
           show: true,
+          position: 'center',
+          formatter: `${vms.value.length}\n台总数`,
+          fontSize: 16,
+          fontWeight: 'bold',
           color: '#2c2520',
-          formatter: '{b}: {c}台'
-        }
+          lineHeight: 22
+        },
+        data: chartData
       }
     ]
   });
@@ -467,22 +610,30 @@ const renderStorageChart = () => {
     },
     series: [
       {
-        name: '已用空间 (GB)',
+        name: '已用空间/GB',
         type: 'bar',
         stack: 'total',
+        barWidth: 16,
         label: { show: false },
         emphasis: { focus: 'series' },
         data: allocated,
-        itemStyle: { color: '#1d4ed8' }
+        itemStyle: {
+          color: '#1d4ed8',
+          borderRadius: [4, 0, 0, 4]
+        }
       },
       {
-        name: '剩余空间 (GB)',
+        name: '剩余空间/GB',
         type: 'bar',
         stack: 'total',
+        barWidth: 16,
         label: { show: false },
         emphasis: { focus: 'series' },
         data: available,
-        itemStyle: { color: '#f2ede0' }
+        itemStyle: {
+          color: 'rgba(116, 108, 99, 0.12)',
+          borderRadius: [0, 4, 4, 0]
+        }
       }
     ]
   });
@@ -490,6 +641,7 @@ const renderStorageChart = () => {
 
 const updateCharts = () => {
   renderTrendChart();
+  renderNetTrendChart();
   renderAllocationChart();
   renderMemoryChart();
   renderStatusChart();
@@ -498,6 +650,7 @@ const updateCharts = () => {
 
 const resizeCharts = () => {
   trendChart?.resize();
+  netTrendChart?.resize();
   allocationChart?.resize();
   memoryChart?.resize();
   statusChart?.resize();
@@ -536,6 +689,7 @@ onUnmounted(() => {
   }
   window.removeEventListener('resize', resizeCharts);
   trendChart?.dispose();
+  netTrendChart?.dispose();
   allocationChart?.dispose();
   memoryChart?.dispose();
   statusChart?.dispose();
@@ -563,7 +717,7 @@ watch([hostInfo, vms, storagePools], () => {
 
 .stat-card {
   flex: 1;
-  min-width: 200px;
+  min-width: 160px;
 }
 
 .stat-card-content {
@@ -601,6 +755,10 @@ watch([hostInfo, vms, storagePools], () => {
 
 .text-info {
   color: var(--color-info) !important;
+}
+
+.text-green {
+  color: #16a34a !important;
 }
 
 .text-purple {

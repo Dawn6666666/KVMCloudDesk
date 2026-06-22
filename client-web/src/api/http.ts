@@ -7,12 +7,22 @@ const instance = axios.create({
   timeout: 15000,
 });
 
-function logAction(type: 'info' | 'success' | 'error', action: string, detail: string) {
+function logAction(type: 'info' | 'success' | 'error', action: string, detail: string, id?: string) {
   try {
     const logStore = useLogStore();
-    logStore.addLog(type, action, detail);
+    logStore.addLog(type, action, detail, id);
   } catch (e) {
     console.warn('Failed to log action:', e);
+  }
+}
+
+function updateLogAction(id: string, type: 'success' | 'error', detail: string) {
+  if (!id) return;
+  try {
+    const logStore = useLogStore();
+    logStore.updateLog(id, type, detail);
+  } catch (e) {
+    console.warn('Failed to update log:', e);
   }
 }
 
@@ -20,7 +30,9 @@ instance.interceptors.request.use(
   (config) => {
     const actionDesc = config.headers?.['X-Action-Description'];
     if (actionDesc) {
-      logAction('info', String(actionDesc), '正在发送请求');
+      const requestId = Math.random().toString(36).substring(2, 9);
+      (config as any).requestId = requestId;
+      logAction('info', String(actionDesc), '正在发送请求', requestId);
     }
     return config;
   },
@@ -33,18 +45,19 @@ instance.interceptors.response.use(
   (response) => {
     const res = response.data;
     const actionDesc = response.config.headers?.['X-Action-Description'];
+    const requestId = (response.config as any).requestId;
 
     if (res && typeof res === 'object' && 'success' in res) {
       if (res.success) {
-        if (actionDesc) {
-          logAction('success', String(actionDesc), res.message || '操作成功');
+        if (actionDesc && requestId) {
+          updateLogAction(requestId, 'success', res.message || '操作成功');
         }
         return res.data;
       } else {
         const errMsg = res.message || '业务错误';
         ElMessage.error(errMsg);
-        if (actionDesc) {
-          logAction('error', String(actionDesc), errMsg);
+        if (actionDesc && requestId) {
+          updateLogAction(requestId, 'error', errMsg);
         }
         return Promise.reject(new Error(errMsg));
       }
@@ -53,6 +66,7 @@ instance.interceptors.response.use(
   },
   (error) => {
     const actionDesc = error.config?.headers?.['X-Action-Description'];
+    const requestId = error.config?.requestId;
     let errMsg = '网络或系统异常';
 
     if (error.response) {
@@ -63,8 +77,8 @@ instance.interceptors.response.use(
     }
 
     ElMessage.error(errMsg);
-    if (actionDesc) {
-      logAction('error', String(actionDesc), errMsg);
+    if (actionDesc && requestId) {
+      updateLogAction(requestId, 'error', errMsg);
     }
     return Promise.reject(error);
   }

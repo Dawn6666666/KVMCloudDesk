@@ -61,7 +61,19 @@ public class LibvirtResourceFallbackServices implements ImageService {
             dto.name = path.getFileName().toString();
             dto.path = path.toString();
             dto.format = format(dto.name);
-            dto.sizeGb = Math.round(Files.size(path) / 1024.0 / 1024.0 / 1024.0 * 10.0) / 10.0;
+            long byteSize = Files.size(path);
+            dto.sizeGb = Math.round(byteSize / 1024.0 / 1024.0 / 1024.0 * 10.0) / 10.0;
+            
+            long physicalBytes = byteSize;
+            try {
+                Object blocks = Files.getAttribute(path, "unix:blocks");
+                if (blocks instanceof Long b) {
+                    physicalBytes = b * 512;
+                }
+            } catch (Exception ignored) {}
+            dto.physicalSizeGb = Math.round(physicalBytes / 1024.0 / 1024.0 / 1024.0 * 10.0) / 10.0;
+            dto.exists = Files.exists(path);
+            
             dto.createTime = FORMATTER.format(Instant.ofEpochMilli(Files.getLastModifiedTime(path).toMillis()));
             dto.description = "libvirt 镜像文件";
             return dto;

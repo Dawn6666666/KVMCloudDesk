@@ -90,6 +90,13 @@ public class LibvirtNetworkService implements NetworkService {
             dto.bridgeName = LibvirtUtil.firstAttribute(doc, "bridge", "name");
             dto.forwardMode = LibvirtUtil.firstAttribute(doc, "forward", "mode");
             dto.ipAddress = LibvirtUtil.firstAttribute(doc, "ip", "address");
+            dto.netmask = LibvirtUtil.firstAttribute(doc, "ip", "netmask");
+            if (dto.netmask == null || "-".equals(dto.netmask)) {
+                String prefix = LibvirtUtil.firstAttribute(doc, "ip", "prefix");
+                if (prefix != null && !"-".equals(prefix)) {
+                    dto.netmask = "/" + prefix;
+                }
+            }
             dto.dhcpStart = LibvirtUtil.firstAttribute(doc, "range", "start");
             dto.dhcpEnd = LibvirtUtil.firstAttribute(doc, "range", "end");
         } finally {

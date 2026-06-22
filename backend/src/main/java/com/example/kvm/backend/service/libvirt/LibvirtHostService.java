@@ -76,10 +76,44 @@ public class LibvirtHostService implements HostService {
             } else {
                 dto.qemuVersion = "未知";
             }
+            fillNetworkBytes(dto);
             return dto;
         } finally {
             manager.close(conn);
         }
+    }
+
+    private void fillNetworkBytes(HostInfoDto dto) {
+        long rx = 0;
+        long tx = 0;
+        try {
+            java.io.File file = new java.io.File("/proc/net/dev");
+            if (file.exists() && file.canRead()) {
+                try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))) {
+                    String line;
+                    reader.readLine();
+                    reader.readLine();
+                    while ((line = reader.readLine()) != null) {
+                        line = line.trim();
+                        String[] parts = line.split(":");
+                        if (parts.length >= 2) {
+                            String iface = parts[0].trim();
+                            if ("lo".equals(iface)) {
+                                continue;
+                            }
+                            String[] stats = parts[1].trim().split("\\s+");
+                            if (stats.length >= 9) {
+                                rx += Long.parseLong(stats[0]);
+                                tx += Long.parseLong(stats[8]);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        dto.networkRxBytes = rx;
+        dto.networkTxBytes = tx;
     }
 
     private long getFreeMemoryFromProc() {

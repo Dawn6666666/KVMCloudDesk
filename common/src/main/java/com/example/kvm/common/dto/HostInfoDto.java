@@ -23,4 +23,6 @@ public class HostInfoDto {
     public String osName;
     public String osKernel;
     public String uptime;
+    public long networkRxBytes;
+    public long networkTxBytes;
 }

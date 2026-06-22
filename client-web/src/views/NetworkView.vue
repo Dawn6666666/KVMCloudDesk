@@ -37,6 +37,18 @@
           </template>
         </el-table-column>
         <el-table-column prop="ipAddress" label="网关 IP" width="130" />
+        <el-table-column prop="netmask" label="子网掩码" width="130">
+          <template #default="{ row }">
+            <span>{{ row.netmask || '-' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="关联虚拟机" width="110" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.vmCount ? 'primary' : 'info'" size="small">
+              {{ row.vmCount || 0 }} 台
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="DHCP 分配范围" min-width="220">
           <template #default="{ row }">
             <div v-if="row.dhcpStart && row.dhcpEnd" class="dhcp-range">
@@ -105,10 +117,10 @@
         </el-form-item>
         <el-form-item label="转发模式" prop="forwardMode">
           <el-select v-model="createForm.forwardMode" placeholder="请选择转发模式" style="width: 100%;">
-            <el-option label="NAT 模式 (NAT)" value="nat" />
-            <el-option label="路由模式 (Route)" value="route" />
-            <el-option label="仅隔离模式 (Isolated)" value="isolated" />
-            <el-option label="无转发模式 (None)" value="none" />
+            <el-option label="NAT模式" value="nat" />
+            <el-option label="路由模式" value="route" />
+            <el-option label="仅隔离模式" value="isolated" />
+            <el-option label="无转发模式" value="none" />
           </el-select>
         </el-form-item>
         <el-form-item label="网关 IP 地址" prop="ipAddress">
@@ -144,7 +156,7 @@ import { ref, onMounted } from 'vue';
 import { ElMessageBox, ElMessage } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import { Plus, Refresh } from '@element-plus/icons-vue';
-import { getNetworks, startNetwork, stopNetwork, createNetwork, deleteNetwork } from '@/api/kvm';
+import { getNetworks, startNetwork, stopNetwork, createNetwork, deleteNetwork, getVms } from '@/api/kvm';
 import type { NetworkInfoDto, CreateNetworkRequest } from '@/types/kvm';
 
 const networks = ref<NetworkInfoDto[]>([]);
@@ -192,10 +204,18 @@ const formRules: FormRules = {
 const fetchData = async () => {
   globalLoading.value = true;
   try {
-    const data = await getNetworks();
-    networks.value = data;
+    const [netsData, vmsData] = await Promise.all([
+      getNetworks(),
+      getVms()
+    ]);
+    networks.value = netsData.map(net => {
+      return {
+        ...net,
+        vmCount: vmsData.filter(vm => vm.networkName === net.name).length
+      };
+    });
   } catch (error) {
-    console.error('加载虚拟网络列表异常', error);
+    console.error('加载虚拟网络列表或虚拟机列表异常', error);
   } finally {
     globalLoading.value = false;
   }
@@ -273,7 +293,7 @@ const submitCreate = async () => {
 
 const confirmDelete = (name: string) => {
   ElMessageBox.confirm(
-    `确定要注销（彻底删除）虚拟网络 ${name} 吗？该操作会将网络配置从宿主机中彻底移除。`,
+    `确定要注销虚拟网络 ${name} 吗？该操作会将网络配置从宿主机中彻底移除。`,
     '网络注销警告',
     {
       confirmButtonText: '确定注销',

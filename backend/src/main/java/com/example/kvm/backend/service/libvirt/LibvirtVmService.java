@@ -17,6 +17,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 
 @Service
 @Profile("libvirt")
@@ -221,6 +223,14 @@ public class LibvirtVmService implements VmService {
     }
 
     @Override
+    public void rebootVm(String name) {
+        withDomain(name, domain -> {
+            check(manager.library().virDomainReboot(domain, 0), "重启虚拟机失败：" + name);
+            return null;
+        });
+    }
+
+    @Override
     public void deleteVm(String name) {
         withDomain(name, domain -> {
             check(manager.library().virDomainUndefine(domain), "删除虚拟机定义失败：" + name);
@@ -271,9 +281,33 @@ public class LibvirtVmService implements VmService {
         }
         try {
             Document doc = LibvirtUtil.xml(xmlPointer.getString(0, "UTF-8"));
-            dto.diskPath = LibvirtUtil.firstAttribute(doc, "source", "file");
+            
+            NodeList diskNodes = doc.getElementsByTagName("disk");
+            List<String> paths = new ArrayList<>();
+            int totalSize = 0;
+            for (int i = 0; i < diskNodes.getLength(); i++) {
+                if (diskNodes.item(i) instanceof Element diskElement) {
+                    NodeList sourceNodes = diskElement.getElementsByTagName("source");
+                    for (int j = 0; j < sourceNodes.getLength(); j++) {
+                        if (sourceNodes.item(j) instanceof Element sourceElement && sourceElement.hasAttribute("file")) {
+                            String file = sourceElement.getAttribute("file");
+                            if (file != null && !file.isBlank()) {
+                                paths.add(file);
+                                totalSize += diskSizeGb(file);
+                            }
+                        }
+                    }
+                }
+            }
+            if (paths.isEmpty()) {
+                dto.diskPath = "-";
+                dto.diskSizeGb = 0;
+            } else {
+                dto.diskPath = String.join(";", paths);
+                dto.diskSizeGb = totalSize;
+            }
+
             dto.networkName = LibvirtUtil.firstAttribute(doc, "source", "network");
-            dto.diskSizeGb = diskSizeGb(dto.diskPath);
             String vncPortStr = LibvirtUtil.firstAttribute(doc, "graphics", "port");
             if (vncPortStr != null && !"-".equals(vncPortStr)) {
                 try {

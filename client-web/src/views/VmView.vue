@@ -23,17 +23,19 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="cpuCount" label="CPU (核)" width="90" align="center" />
-        <el-table-column label="内存 (MB)" width="100" align="center">
+        <el-table-column prop="cpuCount" label="CPU/核" width="90" align="center" />
+        <el-table-column label="内存/MB" width="100" align="center">
           <template #default="{ row }">
             {{ row.memoryMb }}
           </template>
         </el-table-column>
-        <el-table-column label="磁盘规格" width="160">
+        <el-table-column label="磁盘规格" width="220">
           <template #default="{ row }">
             <div class="disk-info">
-              <span>{{ row.diskSizeGb }} GB</span>
-              <span class="sub-text">{{ getFileName(row.diskPath) }}</span>
+              <span style="font-weight: bold;">{{ row.diskSizeGb }} GB</span>
+              <div v-for="(path, index) in (row.diskPath ? row.diskPath.split(';') : [])" :key="index" class="sub-text" :title="path">
+                磁盘 {{ index + 1 }}: {{ getFileName(path) }}
+              </div>
             </div>
           </template>
         </el-table-column>
@@ -51,7 +53,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="description" label="描述" min-width="150" show-overflow-tooltip />
-        <el-table-column label="操作" width="340" fixed="right">
+        <el-table-column label="操作" width="360" fixed="right">
           <template #default="{ row }">
             <div class="actions-cell">
               <el-button 
@@ -82,6 +84,16 @@
                 @click="handleAction(row.name, 'shutdown')"
               >
                 关机
+              </el-button>
+              <el-button 
+                v-if="row.state === '运行'" 
+                size="small" 
+                type="warning" 
+                plain
+                :loading="actionLoading[row.name]"
+                @click="handleAction(row.name, 'reboot')"
+              >
+                重启
               </el-button>
               <el-button 
                 v-if="row.state === '运行'" 
@@ -245,7 +257,7 @@ import type { FormInstance, FormRules } from 'element-plus';
 import { Plus, Refresh } from '@element-plus/icons-vue';
 import { 
   getVms, startVm, shutdownVm, destroyVm, suspendVm, resumeVm, deleteVm, createVm,
-  getImages, getNetworks, getVmDetail
+  getImages, getNetworks, getVmDetail, rebootVm
 } from '@/api/kvm';
 import type { VmInfoDto, ImageInfoDto, NetworkInfoDto, CreateVmRequest } from '@/types/kvm';
 import { useLogStore } from '@/stores/logStore';
@@ -466,7 +478,8 @@ const handleAction = async (name: string, action: string) => {
   const actionName = {
     start: '启动',
     suspend: '暂停',
-    resume: '恢复'
+    resume: '恢复',
+    reboot: '重启'
   }[action] || '操作';
 
   try {
@@ -525,6 +538,23 @@ const handleAction = async (name: string, action: string) => {
           ElMessage.success(`虚拟机 ${name} 已恢复运行`);
         } else {
           logStore.addLog('error', `恢复虚拟机 ${name}`, `已发送指令，但当前状态为 [${resumedVm ? resumedVm.state : '未知'}]`);
+        }
+        break;
+
+      case 'reboot':
+        logStore.addLog('info', `重启虚拟机 ${name}`, '正在发送重启信号...');
+        await rebootVm(name);
+        logStore.addLog('info', `重启虚拟机 ${name}`, '重启指令已下发，正在等待虚拟机重启...');
+        
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        await fetchData();
+        
+        const rebootedVm = vms.value.find(v => v.name === name);
+        if (rebootedVm && rebootedVm.state === '运行') {
+          logStore.addLog('success', `重启虚拟机 ${name}`, '虚拟机已成功重启并恢复至 [运行中]');
+          ElMessage.success(`虚拟机 ${name} 重启成功`);
+        } else {
+          logStore.addLog('error', `重启虚拟机 ${name}`, `已发送指令，当前状态为 [${rebootedVm ? rebootedVm.state : '未知'}]`);
         }
         break;
     }

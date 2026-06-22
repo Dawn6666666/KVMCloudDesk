@@ -13,5 +13,6 @@ public interface VmService {
     void destroyVm(String name);
     void suspendVm(String name);
     void resumeVm(String name);
+    void rebootVm(String name);
     void deleteVm(String name);
 }

@@ -7,4 +7,6 @@ public class ImageInfoDto {
     public double sizeGb;
     public String createTime;
     public String description;
+    public double physicalSizeGb;
+    public boolean exists;
 }

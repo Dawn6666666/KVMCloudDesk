@@ -36,13 +36,24 @@ public class MockSnapshotService implements SnapshotService {
         dto.createTime = MockDataStore.now();
         dto.state = store.vms.get(vmName).state;
         dto.description = request.description;
-        store.snapshots.computeIfAbsent(vmName, key -> new ArrayList<>()).add(dto);
+        dto.current = true;
+        List<SnapshotInfoDto> list = store.snapshots.computeIfAbsent(vmName, key -> new ArrayList<>());
+        for (SnapshotInfoDto s : list) {
+            s.current = false;
+        }
+        list.add(dto);
         return dto;
     }
 
     @Override
     public void revertSnapshot(String vmName, String snapshotName) {
         findSnapshot(vmName, snapshotName);
+        List<SnapshotInfoDto> list = store.snapshots.get(vmName);
+        if (list != null) {
+            for (SnapshotInfoDto s : list) {
+                s.current = s.name.equals(snapshotName);
+            }
+        }
     }
 
     @Override

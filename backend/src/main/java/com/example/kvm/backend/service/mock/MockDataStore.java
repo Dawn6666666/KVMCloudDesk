@@ -54,6 +54,7 @@ public class MockDataStore {
         dto.bridgeName = "virbr0";
         dto.forwardMode = "nat";
         dto.ipAddress = "192.168.122.1";
+        dto.netmask = "255.255.255.0";
         dto.dhcpStart = "192.168.122.2";
         dto.dhcpEnd = "192.168.122.254";
         networks.put(dto.name, dto);
@@ -61,10 +62,10 @@ public class MockDataStore {
 
     private void seedSnapshots() {
         snapshots.put("demo", new ArrayList<>(List.of(
-                snapshot("snapshot-001", "demo", "关闭", "演示快照 001"),
-                snapshot("snapshot-002", "demo", "关闭", "演示快照 002"))));
+                snapshot("snapshot-001", "demo", "关闭", "演示快照 001", false),
+                snapshot("snapshot-002", "demo", "关闭", "演示快照 002", true))));
         snapshots.put("test-centos", new ArrayList<>(List.of(
-                snapshot("base-snapshot", "test-centos", "运行", "基础快照"))));
+                snapshot("base-snapshot", "test-centos", "运行", "基础快照", true))));
     }
 
     private void seedStorage() {
@@ -90,6 +91,8 @@ public class MockDataStore {
         dto.path = path;
         dto.format = format;
         dto.sizeGb = sizeGb;
+        dto.physicalSizeGb = sizeGb * 0.8;
+        dto.exists = true;
         dto.createTime = now();
         dto.description = description;
         images.put(name, dto);
@@ -114,13 +117,14 @@ public class MockDataStore {
         return dto;
     }
 
-    private static SnapshotInfoDto snapshot(String name, String vmName, String state, String description) {
+    private static SnapshotInfoDto snapshot(String name, String vmName, String state, String description, boolean current) {
         SnapshotInfoDto dto = new SnapshotInfoDto();
         dto.name = name;
         dto.vmName = vmName;
         dto.createTime = now();
         dto.state = state;
         dto.description = description;
+        dto.current = current;
         return dto;
     }
 

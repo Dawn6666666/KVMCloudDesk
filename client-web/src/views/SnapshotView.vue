@@ -49,10 +49,19 @@
 
       <div v-else>
         <el-table v-loading="globalLoading" :data="snapshots" style="width: 100%">
-          <el-table-column prop="name" label="快照名称" width="180" fixed />
-          <el-table-column prop="state" label="状态" width="100" align="center">
+          <el-table-column prop="name" label="快照名称" width="220" fixed>
             <template #default="{ row }">
-              <el-tag size="small" type="info">{{ row.state || '正常' }}</el-tag>
+              <div class="name-cell" style="display: flex; align-items: center; gap: 8px;">
+                <span>{{ row.name }}</span>
+                <el-tag v-if="row.current" size="small" type="success" effect="dark" class="current-badge">当前</el-tag>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column prop="state" label="状态" width="120" align="center">
+            <template #default="{ row }">
+              <el-tag size="small" :type="getSnapshotStateTagType(row.state)">
+                {{ translateSnapshotState(row.state) }}
+              </el-tag>
             </template>
           </el-table-column>
           <el-table-column prop="createTime" label="创建生成时间" width="180" />
@@ -158,6 +167,24 @@ const translateState = (state: string) => {
   if (state === '暂停') return '暂停中';
   if (state === '异常') return '异常';
   return state;
+};
+
+const translateSnapshotState = (state: string) => {
+  if (!state) return '未知';
+  const lower = state.toLowerCase();
+  if (lower === 'running') return '运行中';
+  if (lower === 'shutoff') return '已关机';
+  if (lower === 'paused') return '暂停中';
+  return state;
+};
+
+const getSnapshotStateTagType = (state: string) => {
+  if (!state) return 'info';
+  const lower = state.toLowerCase();
+  if (lower === 'running') return 'success';
+  if (lower === 'shutoff') return 'info';
+  if (lower === 'paused') return 'warning';
+  return 'danger';
 };
 
 const fetchVms = async () => {

@@ -6,4 +6,5 @@ public class SnapshotInfoDto {
     public String createTime;
     public String state;
     public String description;
+    public boolean current;
 }

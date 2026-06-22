@@ -9,7 +9,7 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addViewControllers(ViewControllerRegistry registry) {
-        // 将前端的所有页面路由（单页面应用路由）直接转发至 index.html 入口
+        // 将前端的所有页面路由直接转发至 index.html 入口
         registry.addViewController("/").setViewName("forward:/index.html");
         registry.addViewController("/host").setViewName("forward:/index.html");
         registry.addViewController("/vms").setViewName("forward:/index.html");

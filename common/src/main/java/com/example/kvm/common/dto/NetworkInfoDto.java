@@ -8,6 +8,7 @@ public class NetworkInfoDto {
     public String bridgeName;
     public String forwardMode;
     public String ipAddress;
+    public String netmask;
     public String dhcpStart;
     public String dhcpEnd;
 }

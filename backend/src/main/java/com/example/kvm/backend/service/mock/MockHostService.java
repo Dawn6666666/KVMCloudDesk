@@ -8,6 +8,9 @@ import org.springframework.stereotype.Service;
 @Service
 @Profile("mock")
 public class MockHostService implements HostService {
+    private long mockRx = 1024L * 1024L * 100L;
+    private long mockTx = 1024L * 1024L * 50L;
+
     @Override
     public HostInfoDto getHostInfo() {
         HostInfoDto dto = new HostInfoDto();
@@ -45,6 +48,11 @@ public class MockHostService implements HostService {
         } else {
             dto.cpuUsagePercent = Math.round((Math.random() * 25.0 + 5.0) * 10.0) / 10.0;
         }
+
+        mockRx += (long) (Math.random() * 1024 * 50);
+        mockTx += (long) (Math.random() * 1024 * 30);
+        dto.networkRxBytes = mockRx;
+        dto.networkTxBytes = mockTx;
 
         return dto;
     }

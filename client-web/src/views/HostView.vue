@@ -13,14 +13,14 @@
             <strong>{{ hostInfo.cpuModel }}</strong>
           </el-descriptions-item>
           <el-descriptions-item label="处理器拓扑架构">
-            {{ hostInfo.cpuSockets }} 插槽 (Sockets) &times; {{ hostInfo.cpuCores }} 核心 (Cores)
+            {{ hostInfo.cpuSockets }} 插槽 &times; {{ hostInfo.cpuCores }} 核心
           </el-descriptions-item>
           <el-descriptions-item label="每核心超线程数">
-            {{ hostInfo.cpuThreads }} 线程 (Threads / Core)
+            {{ hostInfo.cpuThreads }} 线程
           </el-descriptions-item>
           <el-descriptions-item label="逻辑处理器总数">
             <div class="metric-progress-cell">
-              <span>{{ hostInfo.cpuCount }} 逻辑核心 (vCPUs)</span>
+              <span>{{ hostInfo.cpuCount }} 逻辑核心</span>
               <div class="progress-wrap">
                 <span class="pct-text">实时占用 {{ hostInfo.cpuUsagePercent }}%</span>
                 <el-progress :percentage="hostInfo.cpuUsagePercent" :stroke-width="8" status="exception" />
@@ -28,7 +28,7 @@
             </div>
           </el-descriptions-item>
           <el-descriptions-item label="NUMA 架构节点数">
-            {{ hostInfo.numaNodes }} 节点 (NUMA Nodes)
+            {{ hostInfo.numaNodes }} NUMA节点
           </el-descriptions-item>
           <el-descriptions-item label="主频规格">
             {{ hostInfo.cpuMHz }} MHz
@@ -60,7 +60,7 @@
           <el-descriptions-item label="系统平均负载">
             1分钟 Load Average: <strong>{{ hostInfo.systemLoadAverage }}</strong>
           </el-descriptions-item>
-          <el-descriptions-item label="连续运行时间 (Uptime)" :span="2">
+          <el-descriptions-item label="连续运行时间" :span="2">
             <strong>{{ hostInfo.uptime }}</strong>
           </el-descriptions-item>
         </el-descriptions>
