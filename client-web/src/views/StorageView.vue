@@ -86,7 +86,7 @@
               <el-table-column prop="path" label="卷文件路径" min-width="160" show-overflow-tooltip />
               <el-table-column label="关联虚拟机" min-width="110" align="center">
                 <template #default="{ row }">
-                  <el-tag v-if="row.vmName" type="warning" size="small">{{ row.vmName }}</el-tag>
+                  <el-link v-if="row.vmName" type="warning" @click="goToVm(row.vmName)">{{ row.vmName }}</el-link>
                   <el-tag v-else type="info" size="small" effect="plain">闲置</el-tag>
                 </template>
               </el-table-column>
@@ -153,6 +153,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { Refresh, Plus } from '@element-plus/icons-vue';
 import { getStoragePools, getStoragePoolVolumes, createStorageVolume, deleteStorageVolume } from '@/api/kvm';
 import type { StoragePoolInfoDto, StorageVolumeInfoDto } from '@/types/kvm';
@@ -163,6 +164,11 @@ const pools = ref<StoragePoolInfoDto[]>([]);
 const volumes = ref<StorageVolumeInfoDto[]>([]);
 const selectedPoolName = ref<string>('');
 const poolsTableRef = ref<any>(null);
+
+const router = useRouter();
+const goToVm = (name: string) => {
+  router.push({ path: '/vms', query: { search: name } });
+};
 
 const poolsLoading = ref(false);
 const volumesLoading = ref(false);

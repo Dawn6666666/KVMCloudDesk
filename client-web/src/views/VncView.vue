@@ -6,17 +6,37 @@
         <span :class="['status-dot', status]"></span>
         <span class="status-text">{{ statusText }}</span>
       </div>
-      <el-button 
-        size="small" 
-        type="primary" 
-        :icon="Refresh" 
-        @click="reconnect" 
-        style="margin-left: auto;"
-      >
-        重新连接
-      </el-button>
+      <div class="actions-group" style="margin-left: auto; display: flex; gap: 8px;">
+        <el-button 
+          v-if="status === 'connected'"
+          size="small" 
+          type="warning" 
+          plain
+          @click="sendCAD"
+        >
+          发送 Ctrl+Alt+Del
+        </el-button>
+        <el-button 
+          v-if="status === 'connected'"
+          size="small" 
+          type="info" 
+          plain
+          @click="toggleFullscreen"
+          :icon="FullScreen"
+        >
+          全屏窗口
+        </el-button>
+        <el-button 
+          size="small" 
+          type="primary" 
+          :icon="Refresh" 
+          @click="reconnect" 
+        >
+          重新连接
+        </el-button>
+      </div>
     </div>
-    <div class="vnc-screen-wrapper">
+    <div class="vnc-screen-wrapper" ref="vncWrapper">
       <div class="vnc-screen" ref="screenDiv"></div>
     </div>
   </div>
@@ -25,16 +45,40 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
-import { Refresh } from '@element-plus/icons-vue';
+import { Refresh, FullScreen } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
 // @ts-ignore
 import RFB from '@novnc/novnc';
 
 const route = useRoute();
 const vmName = ref(route.params.name as string);
 const screenDiv = ref<HTMLDivElement | null>(null);
+const vncWrapper = ref<HTMLDivElement | null>(null);
 const status = ref('disconnected');
 const statusText = ref('未连接');
 let rfb: any = null;
+
+const sendCAD = () => {
+  if (rfb) {
+    try {
+      rfb.sendCtrlAltDel();
+      ElMessage.success('系统热键发送成功');
+    } catch (e: any) {
+      ElMessage.error('热键发送失败：' + e.message);
+    }
+  }
+};
+
+const toggleFullscreen = () => {
+  if (!vncWrapper.value) return;
+  if (!document.fullscreenElement) {
+    vncWrapper.value.requestFullscreen().catch(err => {
+      ElMessage.error(`无法开启全屏: ${err.message}`);
+    });
+  } else {
+    document.exitFullscreen();
+  }
+};
 
 const connect = () => {
   if (!screenDiv.value) return;

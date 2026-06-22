@@ -3,8 +3,25 @@
     <el-card class="vms-card">
       <template #header>
         <div class="card-header">
-          <div class="header-left">
+          <div class="header-left" style="display: flex; align-items: center; gap: 16px;">
             <span>虚拟机实例列表</span>
+            <el-input
+              v-model="searchQuery"
+              placeholder="输入虚拟机名称过滤..."
+              clearable
+              :prefix-icon="Search"
+              style="width: 220px"
+            />
+            <el-tag 
+              v-if="route.query.network" 
+              closable 
+              type="warning"
+              @click="clearNetworkFilter"
+              @close="clearNetworkFilter"
+              style="cursor: pointer"
+            >
+              网络: {{ route.query.network }}
+            </el-tag>
           </div>
           <div class="header-right">
             <el-button type="primary" :icon="Plus" @click="openCreateDialog">创建虚拟机</el-button>
@@ -13,7 +30,7 @@
         </div>
       </template>
 
-      <el-table v-loading="globalLoading" :data="vms" style="width: 100%">
+      <el-table v-loading="globalLoading" :data="filteredVms" style="width: 100%">
         <el-table-column prop="name" label="名称" width="120" fixed />
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
@@ -251,10 +268,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { ElMessageBox, ElMessage } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
-import { Plus, Refresh } from '@element-plus/icons-vue';
+import { Plus, Refresh, Search } from '@element-plus/icons-vue';
 import { 
   getVms, startVm, shutdownVm, destroyVm, suspendVm, resumeVm, deleteVm, createVm,
   getImages, getNetworks, getVmDetail, rebootVm
@@ -265,6 +283,26 @@ import { useLogStore } from '@/stores/logStore';
 const vms = ref<VmInfoDto[]>([]);
 const images = ref<ImageInfoDto[]>([]);
 const networks = ref<NetworkInfoDto[]>([]);
+
+const route = useRoute();
+const router = useRouter();
+const searchQuery = ref('');
+
+const filteredVms = computed(() => {
+  let result = vms.value;
+  if (route.query.network) {
+    result = result.filter(vm => vm.networkName === route.query.network);
+  }
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase().trim();
+    result = result.filter(vm => vm.name.toLowerCase().includes(q));
+  }
+  return result;
+});
+
+const clearNetworkFilter = () => {
+  router.replace({ path: '/vms', query: { ...route.query, network: undefined } });
+};
 
 const globalLoading = ref(false);
 const createLoading = ref(false);
@@ -567,41 +605,68 @@ const handleAction = async (name: string, action: string) => {
   }
 };
 
-const confirmAction = (name: string, action: string, actionTitle: string) => {
-  ElMessageBox.confirm(
-    `确定要对虚拟机 ${name} 执行 ${actionTitle} 操作吗？该操作可能导致数据未保存或实例被彻底清除。`,
-    '安全警告提示',
-    {
-      confirmButtonText: '确定执行',
-      cancelButtonText: '取消',
-      type: 'warning'
+const executeAction = async (name: string, action: string, actionTitle: string) => {
+  actionLoading.value[name] = true;
+  try {
+    if (action === 'destroy') {
+      logStore.addLog('info', `强制关机虚拟机 ${name}`, '正在向虚拟机发送强制断电信号...');
+      await destroyVm(name);
+      logStore.addLog('success', `强制关机虚拟机 ${name}`, '虚拟机已成功强制断电');
+    } else if (action === 'delete') {
+      logStore.addLog('info', `删除虚拟机 ${name}`, '正在注销虚拟机定义并清理磁盘映像文件...');
+      await deleteVm(name);
+      logStore.addLog('success', `删除虚拟机 ${name}`, '虚拟机及磁盘卷已彻底删除');
     }
-  ).then(async () => {
-    actionLoading.value[name] = true;
-    try {
-      if (action === 'destroy') {
-        logStore.addLog('info', `强制关机虚拟机 ${name}`, '正在向虚拟机发送强制断电信号...');
-        await destroyVm(name);
-        logStore.addLog('success', `强制关机虚拟机 ${name}`, '虚拟机已成功强制断电');
-      } else if (action === 'delete') {
-        logStore.addLog('info', `删除虚拟机 ${name}`, '正在注销虚拟机定义并清理磁盘映像文件...');
-        await deleteVm(name);
-        logStore.addLog('success', `删除虚拟机 ${name}`, '虚拟机及磁盘卷已彻底删除');
-      }
-      ElMessage.success(`${actionTitle}指令执行完成`);
-      await fetchData();
-    } catch (error: any) {
-      console.error(`执行 ${actionTitle} 操作发生错误`, error);
-      const errMsg = error.message || '操作失败';
-      logStore.addLog('error', `${actionTitle}虚拟机 ${name}`, errMsg);
-    } finally {
-      actionLoading.value[name] = false;
-    }
-  }).catch(() => {});
+    ElMessage.success(`${actionTitle}指令执行完成`);
+    await fetchData();
+  } catch (error: any) {
+    console.error(`执行 ${actionTitle} 操作发生错误`, error);
+    const errMsg = error.message || '操作失败';
+    logStore.addLog('error', `${actionTitle}虚拟机 ${name}`, errMsg);
+  } finally {
+    actionLoading.value[name] = false;
+  }
 };
+
+const confirmAction = (name: string, action: string, actionTitle: string) => {
+  if (action === 'delete') {
+    ElMessageBox.prompt(
+      `请输入虚拟机实例名称 "${name}" 以确认注销定义并删除其物理磁盘文件：`,
+      '高危删除确认提示',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        inputPattern: new RegExp(`^${name}$`),
+        inputErrorMessage: '输入的名称不匹配，请重新输入',
+        type: 'error'
+      }
+    ).then(async () => {
+      executeAction(name, action, actionTitle);
+    }).catch(() => {});
+  } else {
+    ElMessageBox.confirm(
+      `确定要对虚拟机 ${name} 执行 ${actionTitle} 操作吗？该操作可能导致数据未保存。`,
+      '安全警告提示',
+      {
+        confirmButtonText: '确定执行',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    ).then(async () => {
+      executeAction(name, action, actionTitle);
+    }).catch(() => {});
+  }
+};
+
+watch(() => route.query.search, (newSearch) => {
+  searchQuery.value = (newSearch as string) || '';
+});
 
 onMounted(() => {
   fetchData();
+  if (route.query.search) {
+    searchQuery.value = route.query.search as string;
+  }
 });
 </script>
 

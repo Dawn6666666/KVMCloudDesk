@@ -44,9 +44,8 @@
         </el-table-column>
         <el-table-column label="关联虚拟机" width="110" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.vmCount ? 'primary' : 'info'" size="small">
-              {{ row.vmCount || 0 }} 台
-            </el-tag>
+            <el-link v-if="row.vmCount" type="primary" @click="goToVmNetwork(row.name)">{{ row.vmCount }} 台</el-link>
+            <el-tag v-else type="info" size="small">0 台</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="DHCP 分配范围" min-width="220">
@@ -153,6 +152,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { ElMessageBox, ElMessage } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import { Plus, Refresh } from '@element-plus/icons-vue';
@@ -162,6 +162,11 @@ import type { NetworkInfoDto, CreateNetworkRequest } from '@/types/kvm';
 const networks = ref<NetworkInfoDto[]>([]);
 const globalLoading = ref(false);
 const actionLoading = ref<Record<string, boolean>>({});
+
+const router = useRouter();
+const goToVmNetwork = (netName: string) => {
+  router.push({ path: '/vms', query: { network: netName } });
+};
 
 const createDialogVisible = ref(false);
 const createLoading = ref(false);

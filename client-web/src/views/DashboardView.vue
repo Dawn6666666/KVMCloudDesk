@@ -688,12 +688,19 @@ onUnmounted(() => {
     timer = null;
   }
   window.removeEventListener('resize', resizeCharts);
+  
   trendChart?.dispose();
+  trendChart = null;
   netTrendChart?.dispose();
+  netTrendChart = null;
   allocationChart?.dispose();
+  allocationChart = null;
   memoryChart?.dispose();
+  memoryChart = null;
   statusChart?.dispose();
+  statusChart = null;
   storageChart?.dispose();
+  storageChart = null;
 });
 
 watch([hostInfo, vms, storagePools], () => {

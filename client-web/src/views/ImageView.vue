@@ -69,7 +69,11 @@
           <el-input v-model="createForm.name" placeholder="例如: centos7" />
         </el-form-item>
         <el-form-item label="文件路径" prop="path">
-          <el-input v-model="createForm.path" placeholder="在宿主机的绝对路径，例如: /var/lib/libvirt/images/centos7.qcow2" />
+          <el-input v-model="createForm.path" placeholder="在宿主机的绝对路径，例如: /var/lib/libvirt/images/centos7.qcow2">
+            <template #append>
+              <el-button @click="openSelectVolumeDialog">从存储池选择</el-button>
+            </template>
+          </el-input>
         </el-form-item>
         <el-form-item label="详细描述" prop="description">
           <el-input 
@@ -87,6 +91,35 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 存储卷选择 Dialog -->
+    <el-dialog
+      v-model="volumeDialogVisible"
+      title="选择宿主机映像文件 (默认存储池)"
+      width="600px"
+      :close-on-click-modal="false"
+    >
+      <el-table 
+        v-loading="volumeLoading" 
+        :data="availableVolumes" 
+        style="width: 100%"
+        highlight-current-row
+        @row-dblclick="selectVolumeRow"
+      >
+        <el-table-column prop="name" label="卷名称" min-width="150" />
+        <el-table-column label="容量" width="120">
+          <template #default="{ row }">
+            {{ (row.capacityGb || 0).toFixed(1) }} GB
+          </template>
+        </el-table-column>
+        <el-table-column prop="path" label="宿主机绝对路径" min-width="260" show-overflow-tooltip />
+        <el-table-column label="操作" width="100" align="center">
+          <template #default="{ row }">
+            <el-button size="small" type="primary" @click="selectVolumeRow(row)">选择</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-dialog>
   </div>
 </template>
 
@@ -95,7 +128,7 @@ import { ref, onMounted } from 'vue';
 import { ElMessageBox, ElMessage } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import { Plus, Refresh } from '@element-plus/icons-vue';
-import { getImages, addImage, deleteImage } from '@/api/kvm';
+import { getImages, addImage, deleteImage, getStoragePoolVolumes } from '@/api/kvm';
 import type { ImageInfoDto, AddImageRequest } from '@/types/kvm';
 
 const getFormatTagType = (format: string) => {
@@ -112,6 +145,36 @@ const globalLoading = ref(false);
 const createLoading = ref(false);
 const createDialogVisible = ref(false);
 const actionLoading = ref<Record<string, boolean>>({});
+
+const volumeDialogVisible = ref(false);
+const volumeLoading = ref(false);
+const availableVolumes = ref<any[]>([]);
+
+const openSelectVolumeDialog = async () => {
+  volumeDialogVisible.value = true;
+  volumeLoading.value = true;
+  try {
+    const data = await getStoragePoolVolumes('default');
+    availableVolumes.value = data;
+  } catch (error) {
+    console.error('获取存储池卷失败', error);
+    ElMessage.error('无法读取存储池下的物理文件列表');
+  } finally {
+    volumeLoading.value = false;
+  }
+};
+
+const selectVolumeRow = (row: any) => {
+  createForm.value.path = row.path;
+  const filename = row.name;
+  const lastDotIndex = filename.lastIndexOf('.');
+  if (lastDotIndex > 0) {
+    createForm.value.name = filename.substring(0, lastDotIndex);
+  } else {
+    createForm.value.name = filename;
+  }
+  volumeDialogVisible.value = false;
+};
 
 const formRef = ref<FormInstance | null>(null);
 

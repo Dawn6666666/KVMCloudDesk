@@ -121,7 +121,7 @@ const route = useRoute();
 const backendStore = useBackendStore();
 const logStore = useLogStore();
 
-const isConsoleCollapsed = ref(false);
+const isConsoleCollapsed = ref(true);
 const logContainer = ref<HTMLElement | null>(null);
 
 const activeRoute = computed(() => route.path);
@@ -151,10 +151,13 @@ onMounted(() => {
   refreshHostInfo();
 });
 
-watch(() => logStore.logs.length, () => {
+watch(() => logStore.logs.length, (newVal, oldVal) => {
+  if (newVal > (oldVal || 0)) {
+    isConsoleCollapsed.value = false;
+  }
   nextTick(() => {
     if (logContainer.value) {
-      logContainer.value.scrollTop = 0;
+      logContainer.value.scrollTop = logContainer.value.scrollHeight;
     }
   });
 });
