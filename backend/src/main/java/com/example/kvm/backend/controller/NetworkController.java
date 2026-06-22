@@ -2,6 +2,7 @@ package com.example.kvm.backend.controller;
 
 import com.example.kvm.backend.service.NetworkService;
 import com.example.kvm.common.dto.NetworkInfoDto;
+import com.example.kvm.common.request.CreateNetworkRequest;
 import com.example.kvm.common.response.ApiResponse;
 import java.util.List;
 import org.springframework.web.bind.annotation.*;
@@ -30,5 +31,17 @@ public class NetworkController {
     public ApiResponse<Void> stop(@PathVariable("name") String name) {
         networkService.stopNetwork(name);
         return ApiResponse.ok("停止网络成功", null);
+    }
+
+    @PostMapping
+    public ApiResponse<Void> create(@RequestBody CreateNetworkRequest request) {
+        networkService.createNetwork(request);
+        return ApiResponse.ok("创建网络成功", null);
+    }
+
+    @DeleteMapping("/{name}")
+    public ApiResponse<Void> delete(@PathVariable("name") String name) {
+        networkService.deleteNetwork(name);
+        return ApiResponse.ok("注销网络成功", null);
     }
 }

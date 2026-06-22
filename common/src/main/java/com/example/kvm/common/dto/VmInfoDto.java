@@ -13,4 +13,5 @@ public class VmInfoDto {
     public boolean autostart;
     public boolean persistent;
     public String description;
+    public Integer vncPort;
 }

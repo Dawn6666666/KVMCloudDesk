@@ -110,6 +110,7 @@ public class MockDataStore {
         dto.autostart = false;
         dto.persistent = true;
         dto.description = description;
+        dto.vncPort = "运行".equals(state) ? 5900 : null;
         return dto;
     }
 

@@ -1,59 +1,72 @@
 <template>
   <div class="dashboard-container">
     <!-- Top Stats Cards -->
-    <el-row :gutter="20" class="stat-cards">
-      <el-col :span="6">
-        <el-card shadow="hover">
-          <div class="stat-card-content">
-            <span class="stat-title">虚拟机总数</span>
-            <span class="stat-value">{{ vms.length }}</span>
-            <span class="stat-desc">已注册的虚拟主机实例</span>
-          </div>
+    <div class="stat-cards-container">
+      <el-card shadow="hover" class="stat-card">
+        <div class="stat-card-content">
+          <span class="stat-title">虚拟机总数</span>
+          <span class="stat-value">{{ vms.length }}</span>
+          <span class="stat-desc">已注册的虚拟主机实例</span>
+        </div>
+      </el-card>
+      <el-card shadow="hover" class="stat-card">
+        <div class="stat-card-content">
+          <span class="stat-title">运行中实例</span>
+          <span class="stat-value text-success">{{ runningVmsCount }}</span>
+          <span class="stat-desc">当前正在运行的虚拟机</span>
+        </div>
+      </el-card>
+      <el-card shadow="hover" class="stat-card">
+        <div class="stat-card-content">
+          <span class="stat-title">宿主机 CPU 占用</span>
+          <span class="stat-value text-warning">{{ hostInfo ? hostInfo.cpuUsagePercent : 0 }}%</span>
+          <span class="stat-desc">实时处理器使用率</span>
+        </div>
+      </el-card>
+      <el-card shadow="hover" class="stat-card">
+        <div class="stat-card-content">
+          <span class="stat-title">物理内存占用</span>
+          <span class="stat-value text-purple">{{ hostInfo ? hostInfo.memoryUsagePercent : 0 }}%</span>
+          <span class="stat-desc">实时物理内存使用率</span>
+        </div>
+      </el-card>
+      <el-card shadow="hover" class="stat-card">
+        <div class="stat-card-content">
+          <span class="stat-title">存储池容量</span>
+          <span class="stat-value text-info">{{ totalStoragePoolCapacity.toFixed(1) }} GB</span>
+          <span class="stat-desc">活跃存储池总计容量</span>
+        </div>
+      </el-card>
+    </div>
+
+    <!-- Real-time Metrics & Allocations Charts -->
+    <el-row :gutter="20" class="chart-row">
+      <el-col :span="16">
+        <el-card header="宿主机物理负载实时趋势 (CPU / 内存走势)" shadow="hover">
+          <div ref="trendChartRef" class="chart-box main-chart"></div>
         </el-card>
       </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover">
-          <div class="stat-card-content">
-            <span class="stat-title">运行中实例</span>
-            <span class="stat-value text-success">{{ runningVmsCount }}</span>
-            <span class="stat-desc">当前正在开机运行的虚拟机</span>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover">
-          <div class="stat-card-content">
-            <span class="stat-title">存储池容量</span>
-            <span class="stat-value text-info">{{ totalStoragePoolCapacity.toFixed(1) }} GB</span>
-            <span class="stat-desc">所有活跃存储池的总存储容量</span>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover">
-          <div class="stat-card-content">
-            <span class="stat-title">宿主机内核</span>
-            <span class="stat-value text-purple">{{ hostInfo?.cpuCount || 0 }} 核</span>
-            <span class="stat-desc">{{ hostInfo?.cpuModel || '未知 CPU' }}</span>
-          </div>
+      <el-col :span="8">
+        <el-card header="各虚拟机分配资源对比" shadow="hover">
+          <div ref="allocationChartRef" class="chart-box main-chart"></div>
         </el-card>
       </el-col>
     </el-row>
 
-    <!-- ECharts Row -->
-    <el-row :gutter="20" class="chart-row">
+    <!-- Global Stats Charts -->
+    <el-row :gutter="20" class="chart-row small-charts-row">
       <el-col :span="8">
-        <el-card header="内存使用率" shadow="hover">
+        <el-card header="宿主机物理内存分布" shadow="hover">
           <div ref="memoryChartRef" class="chart-box"></div>
         </el-card>
       </el-col>
       <el-col :span="8">
-        <el-card header="虚拟机状态统计" shadow="hover">
+        <el-card header="云虚拟机状态统计" shadow="hover">
           <div ref="statusChartRef" class="chart-box"></div>
         </el-card>
       </el-col>
       <el-col :span="8">
-        <el-card header="存储池容量分布" shadow="hover">
+        <el-card header="物理存储池容量分配" shadow="hover">
           <div ref="storageChartRef" class="chart-box"></div>
         </el-card>
       </el-col>
@@ -71,13 +84,23 @@ const hostInfo = ref<HostInfoDto | null>(null);
 const vms = ref<VmInfoDto[]>([]);
 const storagePools = ref<StoragePoolInfoDto[]>([]);
 
+// ECharts 元素引用
+const trendChartRef = ref<HTMLElement | null>(null);
+const allocationChartRef = ref<HTMLElement | null>(null);
 const memoryChartRef = ref<HTMLElement | null>(null);
 const statusChartRef = ref<HTMLElement | null>(null);
 const storageChartRef = ref<HTMLElement | null>(null);
 
+let trendChart: echarts.ECharts | null = null;
+let allocationChart: echarts.ECharts | null = null;
 let memoryChart: echarts.ECharts | null = null;
 let statusChart: echarts.ECharts | null = null;
 let storageChart: echarts.ECharts | null = null;
+
+// 实时 CPU / 内存趋势数据历史记录
+const cpuHistory = ref<number[]>([]);
+const memoryHistory = ref<number[]>([]);
+const timelineLabels = ref<string[]>([]);
 
 const runningVmsCount = computed(() => {
   return vms.value.filter(vm => vm.state === '运行').length;
@@ -89,6 +112,21 @@ const totalStoragePoolCapacity = computed(() => {
     .reduce((sum, p) => sum + p.capacityGb, 0);
 });
 
+// 向历史记录时序中推送实时采样指标
+const pushMetricsToHistory = () => {
+  const timeStr = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+  cpuHistory.value.push(hostInfo.value ? hostInfo.value.cpuUsagePercent : 0);
+  memoryHistory.value.push(hostInfo.value ? hostInfo.value.memoryUsagePercent : 0);
+  timelineLabels.value.push(timeStr);
+  
+  // 仅在图表中保留最近 10 个数据采样点（30秒）
+  if (cpuHistory.value.length > 10) {
+    cpuHistory.value.shift();
+    memoryHistory.value.shift();
+    timelineLabels.value.shift();
+  }
+};
+
 const loadData = async () => {
   try {
     const [hostRes, vmsRes, storageRes] = await Promise.all([
@@ -99,9 +137,166 @@ const loadData = async () => {
     hostInfo.value = hostRes;
     vms.value = vmsRes;
     storagePools.value = storageRes;
+    pushMetricsToHistory();
   } catch (error) {
     console.error('加载监控指标失败', error);
   }
+};
+
+// 渲染大图表：实时 CPU 与内存负载折线图
+const renderTrendChart = () => {
+  if (!trendChartRef.value) return;
+  if (!trendChart) {
+    trendChart = echarts.init(trendChartRef.value);
+  }
+  trendChart.setOption({
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: '#ffffff',
+      borderColor: '#e4dec9',
+      borderWidth: 1,
+      textStyle: { color: '#2c2520' }
+    },
+    legend: {
+      data: ['CPU 利用率', '内存利用率'],
+      textStyle: { color: '#746c63' },
+      top: '0%'
+    },
+    grid: {
+      top: '15%',
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      data: timelineLabels.value,
+      axisLabel: { color: '#746c63' }
+    },
+    yAxis: {
+      type: 'value',
+      min: 0,
+      max: 100,
+      axisLabel: {
+        formatter: '{value}%',
+        color: '#746c63'
+      },
+      splitLine: { lineStyle: { color: 'rgba(228, 222, 201, 0.3)' } }
+    },
+    series: [
+      {
+        name: 'CPU 利用率',
+        type: 'line',
+        data: cpuHistory.value,
+        smooth: true,
+        showSymbol: false,
+        lineStyle: { width: 3, color: '#ca6a1f' },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(202, 106, 31, 0.3)' },
+            { offset: 1, color: 'rgba(202, 106, 31, 0.0)' }
+          ])
+        },
+        itemStyle: { color: '#ca6a1f' }
+      },
+      {
+        name: '内存利用率',
+        type: 'line',
+        data: memoryHistory.value,
+        smooth: true,
+        showSymbol: false,
+        lineStyle: { width: 3, color: '#1d4ed8' },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(29, 78, 216, 0.3)' },
+            { offset: 1, color: 'rgba(29, 78, 216, 0.0)' }
+          ])
+        },
+        itemStyle: { color: '#1d4ed8' }
+      }
+    ]
+  });
+};
+
+// 渲染大图表：虚拟机 CPU / 内存配额占比柱状图
+const renderAllocationChart = () => {
+  if (!allocationChartRef.value) return;
+  if (!allocationChart) {
+    allocationChart = echarts.init(allocationChartRef.value);
+  }
+  
+  const vmNames = vms.value.map(vm => vm.name);
+  const cpus = vms.value.map(vm => vm.cpuCount);
+  const memories = vms.value.map(vm => vm.memoryMb);
+  
+  if (vmNames.length === 0) {
+    vmNames.push('暂无虚拟机');
+    cpus.push(0);
+    memories.push(0);
+  }
+  
+  allocationChart.setOption({
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      backgroundColor: '#ffffff',
+      borderColor: '#e4dec9',
+      borderWidth: 1,
+      textStyle: { color: '#2c2520' }
+    },
+    legend: {
+      data: ['分配 CPU (核)', '分配内存 (MB)'],
+      textStyle: { color: '#746c63' },
+      bottom: '0%'
+    },
+    grid: {
+      top: '12%',
+      left: '3%',
+      right: '3%',
+      bottom: '15%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      data: vmNames,
+      axisLabel: { color: '#746c63', rotate: 20 }
+    },
+    yAxis: [
+      {
+        type: 'value',
+        name: 'CPU',
+        min: 0,
+        axisLabel: { color: '#746c63', formatter: '{value} 核' },
+        splitLine: { show: false }
+      },
+      {
+        type: 'value',
+        name: '内存',
+        min: 0,
+        axisLabel: { color: '#746c63', formatter: '{value} MB' },
+        splitLine: { lineStyle: { color: 'rgba(228, 222, 201, 0.3)' } }
+      }
+    ],
+    series: [
+      {
+        name: '分配 CPU (核)',
+        type: 'bar',
+        data: cpus,
+        itemStyle: { color: '#ca6a1f' }
+      },
+      {
+        name: '分配内存 (MB)',
+        type: 'bar',
+        yAxisIndex: 1,
+        data: memories,
+        itemStyle: { color: '#15803d' }
+      }
+    ]
+  });
 };
 
 const renderMemoryChart = () => {
@@ -294,25 +489,54 @@ const renderStorageChart = () => {
 };
 
 const updateCharts = () => {
+  renderTrendChart();
+  renderAllocationChart();
   renderMemoryChart();
   renderStatusChart();
   renderStorageChart();
 };
 
 const resizeCharts = () => {
+  trendChart?.resize();
+  allocationChart?.resize();
   memoryChart?.resize();
   statusChart?.resize();
   storageChart?.resize();
 };
 
+let timer: any = null;
+
 onMounted(async () => {
   await loadData();
   updateCharts();
   window.addEventListener('resize', resizeCharts);
+  
+  // 每 3 秒自动轮询更新最新系统及虚拟机指标
+  timer = setInterval(async () => {
+    try {
+      const [hostRes, vmsRes, storageRes] = await Promise.all([
+        getHostInfo(),
+        getVms(),
+        getStoragePools(),
+      ]);
+      hostInfo.value = hostRes;
+      vms.value = vmsRes;
+      storagePools.value = storageRes;
+      pushMetricsToHistory();
+    } catch (error) {
+      console.error('定时刷新监控指标失败', error);
+    }
+  }, 3000);
 });
 
 onUnmounted(() => {
+  if (timer) {
+    clearInterval(timer);
+    timer = null;
+  }
   window.removeEventListener('resize', resizeCharts);
+  trendChart?.dispose();
+  allocationChart?.dispose();
   memoryChart?.dispose();
   statusChart?.dispose();
   storageChart?.dispose();
@@ -328,6 +552,18 @@ watch([hostInfo, vms, storagePools], () => {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.stat-cards-container {
+  display: flex;
+  gap: 20px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.stat-card {
+  flex: 1;
+  min-width: 200px;
 }
 
 .stat-card-content {
@@ -359,6 +595,10 @@ watch([hostInfo, vms, storagePools], () => {
   color: var(--color-success) !important;
 }
 
+.text-warning {
+  color: var(--color-warning) !important;
+}
+
 .text-info {
   color: var(--color-info) !important;
 }
@@ -372,8 +612,12 @@ watch([hostInfo, vms, storagePools], () => {
 }
 
 .chart-box {
-  height: 260px;
+  height: 250px;
   width: 100%;
+}
+
+.main-chart {
+  height: 310px;
 }
 
 :deep(.el-card__header) {

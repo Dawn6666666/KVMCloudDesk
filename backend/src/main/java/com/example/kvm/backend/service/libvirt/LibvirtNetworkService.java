@@ -3,6 +3,7 @@ package com.example.kvm.backend.service.libvirt;
 import com.example.kvm.backend.exception.BusinessException;
 import com.example.kvm.backend.service.NetworkService;
 import com.example.kvm.common.dto.NetworkInfoDto;
+import com.example.kvm.common.request.CreateNetworkRequest;
 import com.sun.jna.Pointer;
 import com.sun.jna.ptr.IntByReference;
 import com.sun.jna.ptr.PointerByReference;
@@ -120,5 +121,76 @@ public class LibvirtNetworkService implements NetworkService {
         if (code < 0) {
             throw new BusinessException(message + "：" + manager.lastErrorMessage());
         }
+    }
+
+    @Override
+    public void createNetwork(CreateNetworkRequest request) {
+        if (request.name == null || request.name.isBlank()) {
+            throw new BusinessException("网络名称不能为空");
+        }
+
+        LibvirtLibrary lib = manager.library();
+        Pointer conn = manager.open();
+        try {
+            Pointer existing = lib.virNetworkLookupByName(conn, request.name);
+            if (existing != null) {
+                lib.virNetworkFree(existing);
+                throw new BusinessException("局域网网络 " + request.name + " 已经存在");
+            }
+        } finally {
+            manager.close(conn);
+        }
+
+        String bridgeName = "br-" + (request.name.length() > 10 ? request.name.substring(0, 10) : request.name);
+        StringBuilder xml = new StringBuilder();
+        xml.append("<network>\n");
+        xml.append("  <name>").append(request.name).append("</name>\n");
+        if (request.forwardMode != null && !request.forwardMode.isBlank() && !request.forwardMode.equalsIgnoreCase("none")) {
+            xml.append("  <forward mode='").append(request.forwardMode.toLowerCase()).append("'/>\n");
+        }
+        xml.append("  <bridge name='").append(bridgeName).append("' stp='on' delay='0'/>\n");
+
+        if (request.ipAddress != null && !request.ipAddress.isBlank()) {
+            xml.append("  <ip address='").append(request.ipAddress).append("'");
+            if (request.netmask != null && !request.netmask.isBlank()) {
+                xml.append(" netmask='").append(request.netmask).append("'");
+            }
+            xml.append(">\n");
+            if (request.dhcpEnabled && request.dhcpStart != null && !request.dhcpStart.isBlank() && request.dhcpEnd != null && !request.dhcpEnd.isBlank()) {
+                xml.append("    <dhcp>\n");
+                xml.append("      <range start='").append(request.dhcpStart).append("' end='").append(request.dhcpEnd).append("'/>\n");
+                xml.append("    </dhcp>\n");
+            }
+            xml.append("  </ip>\n");
+        }
+        xml.append("</network>\n");
+
+        Pointer conn2 = manager.open();
+        Pointer network = null;
+        try {
+            network = lib.virNetworkDefineXML(conn2, xml.toString());
+            if (network == null) {
+                throw new BusinessException("定义局域网网络失败：" + manager.lastErrorMessage());
+            }
+            lib.virNetworkSetAutostart(network, 1);
+            check(lib.virNetworkCreate(network), "启动局域网网络失败");
+        } finally {
+            if (network != null) {
+                lib.virNetworkFree(network);
+            }
+            manager.close(conn2);
+        }
+    }
+
+    @Override
+    public void deleteNetwork(String name) {
+        withNetwork(name, network -> {
+            LibvirtLibrary lib = manager.library();
+            if (lib.virNetworkIsActive(network) == 1) {
+                lib.virNetworkDestroy(network);
+            }
+            check(lib.virNetworkUndefine(network), "注销虚拟网络失败：" + name);
+            return null;
+        });
     }
 }

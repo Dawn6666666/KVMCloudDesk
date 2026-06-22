@@ -88,14 +88,20 @@ http://192.168.61.130:8080
            try_files $uri $uri/ /index.html;
        }
 
-       # 反向代理后端网关 API
-       location /api {
-           proxy_pass http://127.0.0.1:8080/api;
-           proxy_set_header Host $host;
-           proxy_set_header X-Real-IP $remote_addr;
-           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-       }
-   }
+        # 反向代理后端网关 API 及 WebSocket
+        location /api {
+            proxy_pass http://127.0.0.1:8080/api;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+            # 开启 WebSocket 双向流协议升级支持（用于 VNC 网页直连）
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_read_timeout 3600s; # 防止控制台闲置超时断开
+        }
+    }
    ```
 3. 在 CentOS 上开放防火墙 80 端口，启动或平滑重启 Nginx 服务。
 4. 在开发机中访问 `http://192.168.61.130/` 即可开始使用系统。

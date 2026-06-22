@@ -48,6 +48,9 @@ public interface LibvirtLibrary extends Library {
     int virNetworkCreate(Pointer network);
     int virNetworkDestroy(Pointer network);
     int virNetworkFree(Pointer network);
+    Pointer virNetworkDefineXML(Pointer conn, String xmlDesc);
+    int virNetworkUndefine(Pointer network);
+    int virNetworkSetAutostart(Pointer network, int autostart);
 
     int virDomainListAllSnapshots(Pointer domain, PointerByReference snapshots, int flags);
     Pointer virDomainSnapshotGetName(Pointer snapshot);

@@ -51,9 +51,18 @@
           </template>
         </el-table-column>
         <el-table-column prop="description" label="描述" min-width="150" show-overflow-tooltip />
-        <el-table-column label="操作" width="280" fixed="right">
+        <el-table-column label="操作" width="340" fixed="right">
           <template #default="{ row }">
             <div class="actions-cell">
+              <el-button 
+                v-if="row.state === '运行'" 
+                size="small" 
+                type="primary" 
+                plain
+                @click="openVncConsole(row.name)"
+              >
+                控制台
+              </el-button>
               <el-button 
                 v-if="row.state === '关闭'" 
                 size="small" 
@@ -303,6 +312,10 @@ const getStatusClass = (state: string) => {
 const getFileName = (path: string) => {
   if (!path) return '';
   return path.split(/[/\\]/).pop() || path;
+};
+
+const openVncConsole = (name: string) => {
+  window.open(`/vnc/${name}`, '_blank');
 };
 
 const fetchData = async () => {

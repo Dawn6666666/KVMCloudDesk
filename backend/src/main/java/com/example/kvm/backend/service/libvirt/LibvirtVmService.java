@@ -274,6 +274,12 @@ public class LibvirtVmService implements VmService {
             dto.diskPath = LibvirtUtil.firstAttribute(doc, "source", "file");
             dto.networkName = LibvirtUtil.firstAttribute(doc, "source", "network");
             dto.diskSizeGb = diskSizeGb(dto.diskPath);
+            String vncPortStr = LibvirtUtil.firstAttribute(doc, "graphics", "port");
+            if (vncPortStr != null && !"-".equals(vncPortStr)) {
+                try {
+                    dto.vncPort = Integer.parseInt(vncPortStr);
+                } catch (NumberFormatException ignored) {}
+            }
         } finally {
             manager.free(xmlPointer);
         }

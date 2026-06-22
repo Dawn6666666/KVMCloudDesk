@@ -66,6 +66,7 @@ public class MockVmService implements VmService {
             throw new BusinessException("暂停状态请使用恢复操作");
         }
         vm.state = "运行";
+        vm.vncPort = 5900;
         if ("-".equals(vm.ipAddress)) {
             vm.ipAddress = "192.168.122.120";
         }
@@ -77,6 +78,7 @@ public class MockVmService implements VmService {
         if ("运行".equals(vm.state) || "暂停".equals(vm.state)) {
             vm.state = "关闭";
             vm.ipAddress = "-";
+            vm.vncPort = null;
         }
     }
 
@@ -85,6 +87,7 @@ public class MockVmService implements VmService {
         VmInfoDto vm = getVm(name);
         vm.state = "关闭";
         vm.ipAddress = "-";
+        vm.vncPort = null;
     }
 
     @Override
@@ -103,6 +106,7 @@ public class MockVmService implements VmService {
             throw new BusinessException("只有暂停中的虚拟机可以恢复");
         }
         vm.state = "运行";
+        vm.vncPort = 5900;
     }
 
     @Override

@@ -4,7 +4,10 @@
       <template #header>
         <div class="card-header">
           <span>虚拟网络配置与管理</span>
-          <el-button :icon="Refresh" @click="fetchData" :loading="globalLoading">刷新</el-button>
+          <div class="header-actions">
+            <el-button type="primary" :icon="Plus" @click="openCreateDialog">创建虚拟网络</el-button>
+            <el-button :icon="Refresh" @click="fetchData" :loading="globalLoading">刷新</el-button>
+          </div>
         </div>
       </template>
 
@@ -45,7 +48,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="uuid" label="UUID" min-width="240" show-overflow-tooltip />
-        <el-table-column label="操作" width="140" fixed="right">
+        <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
             <div class="actions-cell">
               <el-button 
@@ -68,24 +71,123 @@
               >
                 停止
               </el-button>
+              <el-button 
+                v-if="!row.active"
+                size="small" 
+                type="danger" 
+                :loading="actionLoading[row.name]"
+                @click="confirmDelete(row.name)"
+              >
+                注销
+              </el-button>
             </div>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
+
+    <!-- 创建网络 Dialog -->
+    <el-dialog 
+      v-model="createDialogVisible" 
+      title="创建虚拟局域网" 
+      width="540px"
+      :close-on-click-modal="false"
+    >
+      <el-form 
+        ref="formRef" 
+        :model="createForm" 
+        :rules="formRules" 
+        label-width="110px"
+        label-position="left"
+      >
+        <el-form-item label="网络名称" prop="name">
+          <el-input v-model="createForm.name" placeholder="例如: test-net" />
+        </el-form-item>
+        <el-form-item label="转发模式" prop="forwardMode">
+          <el-select v-model="createForm.forwardMode" placeholder="请选择转发模式" style="width: 100%;">
+            <el-option label="NAT 模式 (NAT)" value="nat" />
+            <el-option label="路由模式 (Route)" value="route" />
+            <el-option label="仅隔离模式 (Isolated)" value="isolated" />
+            <el-option label="无转发模式 (None)" value="none" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="网关 IP 地址" prop="ipAddress">
+          <el-input v-model="createForm.ipAddress" placeholder="例如: 192.168.100.1" />
+        </el-form-item>
+        <el-form-item label="子网掩码" prop="netmask">
+          <el-input v-model="createForm.netmask" placeholder="例如: 255.255.255.0" />
+        </el-form-item>
+        <el-form-item label="启用 DHCP 服务" prop="dhcpEnabled">
+          <el-switch v-model="createForm.dhcpEnabled" />
+        </el-form-item>
+        <template v-if="createForm.dhcpEnabled">
+          <el-form-item label="DHCP 起始 IP" prop="dhcpStart">
+            <el-input v-model="createForm.dhcpStart" placeholder="例如: 192.168.100.2" />
+          </el-form-item>
+          <el-form-item label="DHCP 结束 IP" prop="dhcpEnd">
+            <el-input v-model="createForm.dhcpEnd" placeholder="例如: 192.168.100.254" />
+          </el-form-item>
+        </template>
+      </el-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="createDialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="createLoading" @click="submitCreate">确认创建</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { ElMessageBox, ElMessage } from 'element-plus';
-import { Refresh } from '@element-plus/icons-vue';
-import { getNetworks, startNetwork, stopNetwork } from '@/api/kvm';
-import type { NetworkInfoDto } from '@/types/kvm';
+import type { FormInstance, FormRules } from 'element-plus';
+import { Plus, Refresh } from '@element-plus/icons-vue';
+import { getNetworks, startNetwork, stopNetwork, createNetwork, deleteNetwork } from '@/api/kvm';
+import type { NetworkInfoDto, CreateNetworkRequest } from '@/types/kvm';
 
 const networks = ref<NetworkInfoDto[]>([]);
 const globalLoading = ref(false);
 const actionLoading = ref<Record<string, boolean>>({});
+
+const createDialogVisible = ref(false);
+const createLoading = ref(false);
+const formRef = ref<FormInstance | null>(null);
+
+const createForm = ref<CreateNetworkRequest>({
+  name: '',
+  forwardMode: 'nat',
+  ipAddress: '',
+  netmask: '',
+  dhcpEnabled: false,
+  dhcpStart: '',
+  dhcpEnd: ''
+});
+
+const ipPattern = /^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$/;
+
+const formRules: FormRules = {
+  name: [
+    { required: true, message: '请输入局域网网络名称', trigger: 'blur' },
+    { pattern: /^[a-zA-Z0-9_-]+$/, message: '仅能使用英文字母、数字、下划线和连字符', trigger: 'blur' }
+  ],
+  forwardMode: [{ required: true, message: '请选择转发模式', trigger: 'change' }],
+  ipAddress: [
+    { pattern: ipPattern, message: '请输入合法的 IP 地址格式', trigger: 'blur' }
+  ],
+  netmask: [
+    { pattern: ipPattern, message: '请输入合法的子网掩码格式', trigger: 'blur' }
+  ],
+  dhcpStart: [
+    { required: true, message: '请输入 DHCP 起始 IP', trigger: 'blur' },
+    { pattern: ipPattern, message: '请输入合法的 IP 地址格式', trigger: 'blur' }
+  ],
+  dhcpEnd: [
+    { required: true, message: '请输入 DHCP 结束 IP', trigger: 'blur' },
+    { pattern: ipPattern, message: '请输入合法的 IP 地址格式', trigger: 'blur' }
+  ]
+};
 
 const fetchData = async () => {
   globalLoading.value = true;
@@ -137,6 +239,61 @@ const confirmStop = (name: string) => {
   }).catch(() => {});
 };
 
+const openCreateDialog = () => {
+  createDialogVisible.value = true;
+  createForm.value = {
+    name: '',
+    forwardMode: 'nat',
+    ipAddress: '',
+    netmask: '',
+    dhcpEnabled: false,
+    dhcpStart: '',
+    dhcpEnd: ''
+  };
+};
+
+const submitCreate = async () => {
+  if (!formRef.value) return;
+  await formRef.value.validate(async (valid) => {
+    if (valid) {
+      createLoading.value = true;
+      try {
+        await createNetwork(createForm.value);
+        ElMessage.success('虚拟网络定义并启动成功');
+        createDialogVisible.value = false;
+        fetchData();
+      } catch (error) {
+        console.error('新建虚拟网络失败', error);
+      } finally {
+        createLoading.value = false;
+      }
+    }
+  });
+};
+
+const confirmDelete = (name: string) => {
+  ElMessageBox.confirm(
+    `确定要注销（彻底删除）虚拟网络 ${name} 吗？该操作会将网络配置从宿主机中彻底移除。`,
+    '网络注销警告',
+    {
+      confirmButtonText: '确定注销',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }
+  ).then(async () => {
+    actionLoading.value[name] = true;
+    try {
+      await deleteNetwork(name);
+      ElMessage.success('虚拟网络注销成功');
+      await fetchData();
+    } catch (error) {
+      console.error('注销虚拟网络异常', error);
+    } finally {
+      actionLoading.value[name] = false;
+    }
+  }).catch(() => {});
+};
+
 onMounted(() => {
   fetchData();
 });
@@ -152,6 +309,11 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
 }
 
 .state-cell {

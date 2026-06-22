@@ -42,6 +42,11 @@ const routes = [
         component: () => import('@/views/StorageView.vue'),
       },
     ]
+  },
+  {
+    path: '/vnc/:name',
+    name: 'VncConsole',
+    component: () => import('@/views/VncView.vue'),
   }
 ];
 

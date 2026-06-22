@@ -33,6 +33,9 @@
 | `POST` | `/vms/{name}/suspend` | 暂停虚拟机 | `Void` |
 | `POST` | `/vms/{name}/resume` | 恢复虚拟机 | `Void` |
 | `DELETE` | `/vms/{name}` | 删除虚拟机（含磁盘） | `Void` |
+| `WS` | `/vnc-proxy/{vmName}` | 虚拟机控制台 WebSocket 代理流通道 | `BinaryStream` |
+
+> 提示：`VmInfoDto` 增加了 `vncPort` 字段（虚拟机运行状态下的物理 VNC 端口），`HostInfoDto` 增加了 `cpuSockets`、`cpuCores`、`cpuThreads`、`numaNodes`、`osName`、`osKernel`、`uptime`、`cpuUsagePercent` 与 `systemLoadAverage` 字段。
 
 ### 创建虚拟机请求体 `CreateVmRequest`
 
@@ -73,6 +76,22 @@
 | `GET` | `/networks` | 列出虚拟网络 | `List<NetworkInfoDto>` |
 | `POST` | `/networks/{name}/start` | 启动网络 | `Void` |
 | `POST` | `/networks/{name}/stop` | 停止网络 | `Void` |
+| `POST` | `/networks` | 创建定义局域网虚拟网络 | `Void` |
+| `DELETE` | `/networks/{name}` | 彻底注销并删除虚拟网络 | `Void` |
+
+### 创建网络请求体 `CreateNetworkRequest`
+
+```json
+{
+  "name": "custom-net",
+  "forwardMode": "nat",
+  "ipAddress": "192.168.100.1",
+  "netmask": "255.255.255.0",
+  "dhcpEnabled": true,
+  "dhcpStart": "192.168.100.2",
+  "dhcpEnd": "192.168.100.254"
+}
+```
 
 ## 快照
 

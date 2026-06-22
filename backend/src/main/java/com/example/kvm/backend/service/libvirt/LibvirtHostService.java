@@ -29,6 +29,15 @@ public class LibvirtHostService implements HostService {
             dto.cpuModel = LibvirtUtil.cString(node.model);
             dto.cpuCount = node.cpus;
             dto.cpuMHz = node.mhz;
+            dto.cpuSockets = node.sockets;
+            dto.cpuCores = node.cores;
+            dto.cpuThreads = node.threads;
+            dto.numaNodes = node.nodes;
+
+            dto.osName = System.getProperty("os.name");
+            dto.osKernel = System.getProperty("os.version");
+            dto.uptime = formatUptime(getHostUptime());
+
             dto.totalMemoryMb = node.memory.longValue() / 1024;
             long freeMemoryMb = getFreeMemoryFromProc();
             if (freeMemoryMb <= 0) {
@@ -38,6 +47,21 @@ public class LibvirtHostService implements HostService {
             dto.freeMemoryMb = freeMemoryMb;
             dto.usedMemoryMb = Math.max(0, dto.totalMemoryMb - dto.freeMemoryMb);
             dto.memoryUsagePercent = dto.totalMemoryMb == 0 ? 0 : (int) (dto.usedMemoryMb * 100 / dto.totalMemoryMb);
+
+            java.lang.management.OperatingSystemMXBean osBean = java.lang.management.ManagementFactory.getOperatingSystemMXBean();
+            double systemLoad = osBean.getSystemLoadAverage();
+            dto.systemLoadAverage = systemLoad < 0 ? 0.0 : Math.round(systemLoad * 100.0) / 100.0;
+
+            if (osBean instanceof com.sun.management.OperatingSystemMXBean) {
+                double cpuLoad = ((com.sun.management.OperatingSystemMXBean) osBean).getCpuLoad();
+                if (cpuLoad < 0) {
+                    cpuLoad = ((com.sun.management.OperatingSystemMXBean) osBean).getSystemCpuLoad();
+                }
+                dto.cpuUsagePercent = cpuLoad < 0 ? 0.0 : Math.round(cpuLoad * 1000.0) / 10.0;
+            } else {
+                dto.cpuUsagePercent = 0.0;
+            }
+
             dto.virtualizationType = "KVM";
             dto.kvmEnabled = true;
             dto.connectionUri = manager.uri();
@@ -141,5 +165,44 @@ public class LibvirtHostService implements HostService {
         if (code < 0) {
             throw new com.example.kvm.backend.exception.BusinessException(message + "：" + manager.lastErrorMessage());
         }
+    }
+
+    private long getHostUptime() {
+        try {
+            java.io.File file = new java.io.File("/proc/uptime");
+            if (file.exists() && file.canRead()) {
+                try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.FileReader(file))) {
+                    String line = r.readLine();
+                    if (line != null && !line.isBlank()) {
+                        String[] parts = line.split("\\s+");
+                        if (parts.length > 0) {
+                            double seconds = Double.parseDouble(parts[0]);
+                            return (long) seconds;
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // Ignore
+        }
+        return -1;
+    }
+
+    private String formatUptime(long seconds) {
+        if (seconds < 0) {
+            return "未知";
+        }
+        long days = seconds / (24 * 3600);
+        long hours = (seconds % (24 * 3600)) / 3600;
+        long minutes = (seconds % 3600) / 60;
+        StringBuilder sb = new StringBuilder();
+        if (days > 0) {
+            sb.append(days).append("天 ");
+        }
+        if (hours > 0 || days > 0) {
+            sb.append(hours).append("小时 ");
+        }
+        sb.append(minutes).append("分钟");
+        return sb.toString();
     }
 }

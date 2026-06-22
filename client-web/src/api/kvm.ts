@@ -9,7 +9,8 @@ import type {
   StorageVolumeInfoDto,
   CreateVmRequest,
   CreateSnapshotRequest,
-  AddImageRequest
+  AddImageRequest,
+  CreateNetworkRequest
 } from '@/types/kvm';
 
 export const getHostInfo = (): Promise<HostInfoDto> => {
@@ -95,6 +96,18 @@ export const startNetwork = (name: string): Promise<void> => {
 export const stopNetwork = (name: string): Promise<void> => {
   return http.post(`/networks/${name}/stop`, null, {
     headers: { 'X-Action-Description': `停止虚拟网络 ${name}` }
+  });
+};
+
+export const createNetwork = (data: CreateNetworkRequest): Promise<void> => {
+  return http.post('/networks', data, {
+    headers: { 'X-Action-Description': `创建虚拟网络 ${data.name}` }
+  });
+};
+
+export const deleteNetwork = (name: string): Promise<void> => {
+  return http.delete(`/networks/${name}`, {
+    headers: { 'X-Action-Description': `注销虚拟网络 ${name}` }
   });
 };
 

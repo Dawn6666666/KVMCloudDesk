@@ -25,6 +25,8 @@
 | `LibvirtSnapshotService` | libvirt 模式快照服务 |
 | `LibvirtStorageService` | libvirt 模式存储服务 |
 | `LibvirtResourceFallbackServices` | libvirt 模式镜像服务（扫描 /var/lib/libvirt/images） |
+| `VncProxyWebSocketHandler` | WebSocket 处理器，在 VNC 物理端口与网页 WebSocket 连接之间实现双向二进制字节流数据中转 |
+| `WebSocketConfig` | 启用 WebSocket 并配置 `/api/vnc-proxy/{vmName}` 路由映射 |
 
 ## 核心类 — Swing 客户端
 
@@ -61,6 +63,7 @@
 | `views/SnapshotView.vue` | 快照管理页面，包含恢复时的警告提示 |
 | `views/StorageView.vue` | 存储管理页面，包含存储池与存储卷的主从布局及容量进度条 |
 | `views/HostView.vue` | 宿主机详情 |
+| `views/VncView.vue` | 网页端 VNC 远程控制台，借由 noVNC 库在 Canvas 上进行直接操控 |
 | `types/kvm.ts` | TypeScript 类型定义，与 Java 端的 DTO 结构对应 |
 | `style.css` | 全局样式表，定义了主题色、CSS 变量与 Element Plus 组件样式覆盖 |
 
@@ -84,7 +87,7 @@
 
 `mock` 配置使用内存数据完成 Windows 调试。`libvirt` 配置通过 JNA 加载 `/usr/lib64/libvirt.so.0` 并连接 `qemu:///system`。
 
-当前真实 libvirt 已支持宿主机信息、虚拟机列表、虚拟机详情、创建虚拟机、删除虚拟机、启动、关机、强制关闭、暂停、恢复、网络列表、网络启停、存储池列表、存储卷列表、快照列表以及快照创建、恢复与删除接口。镜像列表在 libvirt 模式下扫描 `/var/lib/libvirt/images`。
+当前真实 libvirt 已支持宿主机信息（含物理插槽数、每插槽核心数、超线程数、操作系统内核与自启动运行时间等精细化硬件指标）、虚拟机列表、虚拟机详情（已集成 VNC 端口提取与网页端 WebSocket 双向流转发以实现免插件控制台操控）、创建虚拟机、删除虚拟机、启动、关机、强制关闭、暂停、恢复、网络列表、网络启停与创建注销虚拟局域网、存储池列表、存储卷列表、快照列表以及快照创建、恢复与删除接口。镜像列表在 libvirt 模式下扫描 `/var/lib/libvirt/images`。
 
 快照测试说明：使用 raw 格式磁盘的虚拟机，受底层存储驱动限制不支持快照功能，调用相关接口时返回格式不支持的错误。目前已在 CentOS 环境中部署 qcow2 格式磁盘的虚拟机，验证了快照创建、查询、恢复与删除操作。
 

@@ -18,6 +18,15 @@ export interface HostInfoDto {
   qemuVersion: string;
   kvmEnabled: boolean;
   connectionUri: string;
+  cpuUsagePercent: number;
+  systemLoadAverage: number;
+  cpuSockets: number;
+  cpuCores: number;
+  cpuThreads: number;
+  numaNodes: number;
+  osName: string;
+  osKernel: string;
+  uptime: string;
 }
 
 export interface VmInfoDto {
@@ -33,6 +42,7 @@ export interface VmInfoDto {
   autostart: boolean;
   persistent: boolean;
   description: string;
+  vncPort?: number;
 }
 
 export interface ImageInfoDto {
@@ -102,4 +112,14 @@ export interface AddImageRequest {
   name: string;
   path: string;
   description: string;
+}
+
+export interface CreateNetworkRequest {
+  name: string;
+  forwardMode: string;
+  ipAddress: string;
+  netmask: string;
+  dhcpEnabled: boolean;
+  dhcpStart: string;
+  dhcpEnd: string;
 }
